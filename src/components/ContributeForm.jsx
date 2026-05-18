@@ -63,14 +63,16 @@ function ContributeForm() {
     1. sentences数组包含４个例文对象，例文中需要包含word或者word的变形。每个例文长度必须在80字到150字之间，难度逐渐递增（从N4到N2）。例文需要有真实情景。
     2. 例文要作为题目，因此，每个例文只准出现一次该单词（或活用形）。把该单词（或活用形）用大括号括起来，例如：「彼は約束を{改めた}。」
     3. 每个例文对象需包含text（例文字符串）和target_reading（大括号内单词在该例文中实际活用形态的假名读音，注意是活用后的读音而非原形读音，例如「改めた」的target_reading是「あらためた」）。
-    4. set_id是一个int型整数
-    5. 如果用户提供了备注，请优先听从备注指示生成。
+    4. pitch是该单词原形的日语音调型，必须是阿拉伯数字整数，例如0、1、2、3；如果无法可靠判断则为null。
+    5. set_id是一个int型整数
+    6. 如果用户提供了备注，请优先听从备注指示生成。
 
     格式如下：
     {
       "valid": true,
       "word": "单词原形",
       "reading": "假名读法",
+      "pitch": 0,
       "meaning": "中文意思",
       "level": "JLPT等级，只能是N1/N2/N3/N4/N5其中一个",
       "contributor_name": "贡献者名字",
@@ -95,6 +97,13 @@ function ContributeForm() {
     }
 
     delete vocabData.valid; // 删掉 valid 字段再入库
+    vocabData.pitch =
+      vocabData.pitch === null || vocabData.pitch === undefined
+        ? null
+        : Number(vocabData.pitch);
+    if (!Number.isInteger(vocabData.pitch) || vocabData.pitch < 0) {
+      vocabData.pitch = null;
+    }
 
     /* 用户给出的词没有任何问题，我们再上传数据库 */
     vocabData.sentences = normalizeSentences(

@@ -49,6 +49,7 @@ const Wrapper = styled.header`
   gap: 1rem;
   align-items: center;
   padding: 0 1rem;
+  isolation: isolate;
 
   @media ${QUERIES.tabletAndUp} {
     padding-left: 1.3rem;

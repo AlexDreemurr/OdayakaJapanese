@@ -12,8 +12,7 @@ import { FONT_SIZE, QUERIES } from "../../constants";
 import ProgressBar from "../ProgressBar";
 import { KatakanaRateContext } from "../../KatakanaRateContext";
 import { useAuth } from "../../hooks/useAuth";
-import AuthModal from "../AuthModal";
-import Button from "../Button";
+import UserProfileCard from "../UserProfileCard";
 
 function SettingsPage({ resetAnswerToast }) {
   const { phraseSets, status } = usePhraseSets();
@@ -22,7 +21,6 @@ function SettingsPage({ resetAnswerToast }) {
     React.useContext(KatakanaRateContext);
 
   const { user, isLoggedIn, signOut } = useAuth();
-  const [showAuth, setShowAuth] = React.useState(false);
 
   React.useEffect(() => {
     if (status !== "ok") {
@@ -66,17 +64,11 @@ function SettingsPage({ resetAnswerToast }) {
     <Wrapper>
       <Title>设置</Title>
       <FeatureBlock>
-        <Description>登录/注册</Description>
-        <AuthButtonWrapper>
-          {isLoggedIn ? (
-            <SmallButton onClick={signOut}>退出 ({user.email})</SmallButton>
-          ) : (
-            <SmallButton onClick={() => setShowAuth(true)}>
-              登录 / 注册
-            </SmallButton>
-          )}
-        </AuthButtonWrapper>
-        {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
+        <UserProfileCard
+          user={user}
+          isLoggedIn={isLoggedIn}
+          signOut={signOut}
+        />
       </FeatureBlock>
 
       <FeatureBlock>
@@ -149,20 +141,12 @@ const FeatureBlock = styled.section`
 
 const Title = styled.h1`
   font-size: ${FONT_SIZE.giant};
-  margin-bottom: -0.5rem;
+  /* margin-bottom: 0.5rem; */
 `;
 
 const Description = styled.p`
   color: var(--gray40);
   font-size: ${FONT_SIZE.default};
-`;
-
-const AuthButtonWrapper = styled.div`
-  width: min(100%, 16rem);
-`;
-
-const SmallButton = styled(Button)`
-  font-size: ${FONT_SIZE.small};
 `;
 
 const RateControl = styled.div`

@@ -1,0 +1,291 @@
+import React from "react";
+import styled from "styled-components";
+import supabase from "../supabaseClient";
+import { FONT_FAMILY, FONT_SIZE } from "../constants";
+import { isMissingProfileTable, useUserProfile } from "../hooks/useUserProfile";
+import AuthModal from "./AuthModal";
+import Button from "./Button";
+import SetAvatar from "./SetAvatar";
+import UnstyledButton from "./UnstyledButton";
+import UserAvatar from "./UserAvatar";
+
+const DEFAULT_NICKNAME = "未设置昵称";
+const GUEST_NICKNAME = "未登录";
+
+function getMetadataDisplayName(user) {
+  return user?.user_metadata?.display_name ?? "";
+}
+
+function UserProfileCard({ user, isLoggedIn, signOut }) {
+  const [displayUser, setDisplayUser] = React.useState(user);
+  const {
+    avatarPath,
+    displayName,
+    setAvatarPath,
+    setDisplayName,
+  } = useUserProfile(user);
+  const [draftName, setDraftName] = React.useState("");
+  const [isEditingName, setIsEditingName] = React.useState(false);
+  const [status, setStatus] = React.useState("free");
+  const [showAuth, setShowAuth] = React.useState(false);
+  const [showSetAvatar, setShowSetAvatar] = React.useState(false);
+  const savedProfileRef = React.useRef({
+    avatar: { pending: false, value: null },
+    name: { pending: false, value: "" },
+  });
+
+  React.useEffect(() => {
+    setDisplayUser(user);
+
+    if (!user?.id) {
+      setAvatarPath(null);
+      setDraftName("");
+      savedProfileRef.current = {
+        avatar: { pending: false, value: null },
+        name: { pending: false, value: "" },
+      };
+      return;
+    }
+
+    const metadataDisplayName = getMetadataDisplayName(user);
+
+    if (!savedProfileRef.current.name.pending) {
+      setDraftName(metadataDisplayName);
+    } else if (metadataDisplayName === savedProfileRef.current.name.value) {
+      savedProfileRef.current.name = { pending: false, value: "" };
+    }
+  }, [setAvatarPath, setDisplayName, user]);
+
+  React.useEffect(() => {
+    if (!isEditingName && !savedProfileRef.current.name.pending) {
+      setDraftName(displayName);
+    }
+  }, [displayName, isEditingName]);
+
+  function handleAvatarClick() {
+    if (isLoggedIn) {
+      setShowSetAvatar(true);
+    } else {
+      setShowAuth(true);
+    }
+  }
+
+  function startEditingName() {
+    if (!isLoggedIn || status === "busy") {
+      return;
+    }
+
+    setDraftName(displayName);
+    setIsEditingName(true);
+  }
+
+  async function saveDisplayName() {
+    if (!isLoggedIn || status === "busy") {
+      setIsEditingName(false);
+      return;
+    }
+
+    const nextDisplayName = draftName.trim();
+    if (nextDisplayName === displayName) {
+      setIsEditingName(false);
+      return;
+    }
+
+    setStatus("busy");
+    const nextUserMetadata = { ...displayUser?.user_metadata };
+    nextUserMetadata.display_name = nextDisplayName;
+
+    const { data, error } = await supabase.auth.updateUser({
+      data: nextUserMetadata,
+    });
+
+    if (error) {
+      console.error(error.message);
+      setDraftName(displayName);
+      setStatus("free");
+      setIsEditingName(false);
+      return;
+    }
+
+    const { error: profileError } = await supabase.from("user_profiles").upsert(
+      {
+        user_id: data.user.id,
+        avatar_path: avatarPath,
+        display_name: nextDisplayName,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id" }
+    );
+
+    if (profileError && !isMissingProfileTable(profileError)) {
+      console.error(profileError.message);
+    }
+
+    savedProfileRef.current.name = {
+      pending: true,
+      value: nextDisplayName,
+    };
+    setDisplayUser(data.user);
+    setDisplayName(nextDisplayName);
+    setDraftName(nextDisplayName);
+    setStatus("free");
+    setIsEditingName(false);
+  }
+
+  function handleNameKeyDown(event) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      event.currentTarget.blur();
+    }
+
+    if (event.key === "Escape") {
+      setDraftName(displayName);
+      setIsEditingName(false);
+    }
+  }
+
+  const visibleName =
+    displayName || (isLoggedIn ? DEFAULT_NICKNAME : GUEST_NICKNAME);
+
+  return (
+    <ProfileCard>
+      <AvatarButton
+        type="button"
+        aria-label={isLoggedIn ? "设置头像" : "登录后设置头像"}
+        onClick={handleAvatarClick}
+      >
+        <UserAvatar size="large" avatarPath={avatarPath} />
+      </AvatarButton>
+
+      <ProfileInfo>
+        {isEditingName ? (
+          <NameInput
+            autoFocus
+            value={draftName}
+            placeholder={DEFAULT_NICKNAME}
+            disabled={status === "busy"}
+            onBlur={saveDisplayName}
+            onChange={(event) => setDraftName(event.target.value)}
+            onKeyDown={handleNameKeyDown}
+          />
+        ) : (
+          <NameButton
+            type="button"
+            disabled={!isLoggedIn || status === "busy"}
+            onClick={startEditingName}
+          >
+            {visibleName}
+          </NameButton>
+        )}
+
+        <EmailText>{isLoggedIn ? user.email : "登录后同步游玩记录"}</EmailText>
+
+        <ActionWrapper>
+          {isLoggedIn ? (
+            <SmallButton onClick={signOut}>退出</SmallButton>
+          ) : (
+            <SmallButton onClick={() => setShowAuth(true)}>
+              登录 / 注册
+            </SmallButton>
+          )}
+        </ActionWrapper>
+      </ProfileInfo>
+
+      {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
+      {showSetAvatar && (
+        <SetAvatar
+          open
+          user={{
+            ...displayUser,
+            user_metadata: {
+              ...displayUser?.user_metadata,
+              avatar_path: avatarPath,
+            },
+          }}
+          onClose={() => setShowSetAvatar(false)}
+          onSaved={(nextUser, nextAvatarPath) => {
+            savedProfileRef.current.avatar = {
+              pending: true,
+              value: nextAvatarPath,
+            };
+            setDisplayUser(nextUser);
+            setAvatarPath(nextAvatarPath);
+          }}
+        />
+      )}
+    </ProfileCard>
+  );
+}
+
+const ProfileCard = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 1.35rem;
+  width: min(100%, 28rem);
+`;
+
+const AvatarButton = styled(UnstyledButton)`
+  flex: 0 0 auto;
+  border-radius: 50%;
+
+  &:focus-visible {
+    outline: 2px solid var(--gray15);
+    outline-offset: 6px;
+  }
+`;
+
+const ProfileInfo = styled.div`
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+`;
+
+const NameButton = styled(UnstyledButton)`
+  max-width: 100%;
+  color: var(--gray15);
+  font-family: ${FONT_FAMILY.chinese_primary};
+  font-size: ${FONT_SIZE.default};
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+
+  &:disabled {
+    cursor: default;
+  }
+`;
+
+const NameInput = styled.input`
+  width: min(100%, 14rem);
+  color: var(--gray15);
+  font-family: ${FONT_FAMILY.chinese_primary};
+  font-size: ${FONT_SIZE.default};
+  line-height: 1.35;
+  border: 0;
+  border-bottom: 1px solid var(--gray40);
+  background: transparent;
+  outline: none;
+
+  &:focus {
+    border-bottom-color: var(--gray15);
+  }
+`;
+
+const EmailText = styled.p`
+  color: var(--gray40);
+  font-size: ${FONT_SIZE.tiny};
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+`;
+
+const ActionWrapper = styled.div`
+  width: min(100%, 9rem);
+  margin-top: 0.2rem;
+`;
+
+const SmallButton = styled(Button)`
+  font-size: ${FONT_SIZE.small};
+`;
+
+export default UserProfileCard;
