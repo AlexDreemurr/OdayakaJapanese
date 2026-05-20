@@ -17,9 +17,6 @@ export default function Header() {
       </TitleMobile>
 
       <Nav>
-        <LinkWrapper fontSize={FONT_SIZE.default} to="/contribute">
-          加词
-        </LinkWrapper>
         <LinkWrapper fontSize={FONT_SIZE.default} to="/phraseSetList">
           词汇集
         </LinkWrapper>

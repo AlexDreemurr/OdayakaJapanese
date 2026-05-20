@@ -1,7 +1,9 @@
 import React from "react";
 import supabase from "../supabaseClient";
 
-function usePhraseSets() {
+const DEFAULT_PHRASE_SET_ID = 1;
+
+function usePhraseSets({ scope = "accessible", search = "" } = {}) {
   const [phraseSets, setPhraseSets] = React.useState([]);
   const [status, setStatus] = React.useState("free");
 
@@ -35,14 +37,42 @@ function usePhraseSets() {
       memberSetIds = memberships.map((membership) => membership.set_id);
     }
 
-    let query = supabase
-      .from("vocabulary_sets")
-      .select("*, vocabulary(count)");
+    let query = supabase.from("vocabulary_sets").select("*, vocabulary(count)");
 
-    if (memberSetIds.length > 0) {
-      query = query.or(`privacy.eq.public,id.in.(${memberSetIds.join(",")})`);
-    } else {
+    if (scope === "created") {
+      if (!user) {
+        setPhraseSets([]);
+        setStatus("ok");
+        return;
+      }
+
+      query = query.or(`owner_id.eq.${user.id},user_id.eq.${user.id}`);
+    } else if (scope === "joined") {
+      if (!user || memberSetIds.length === 0) {
+        setPhraseSets([]);
+        setStatus("ok");
+        return;
+      }
+
+      query = query.in("id", memberSetIds);
+    } else if (scope === "public") {
       query = query.eq("privacy", "public");
+      const hiddenPublicSetIds = Array.from(
+        new Set([DEFAULT_PHRASE_SET_ID, ...memberSetIds])
+      );
+
+      if (hiddenPublicSetIds.length > 0) {
+        query = query.not("id", "in", `(${hiddenPublicSetIds.join(",")})`);
+      }
+    } else {
+      const accessibleSetIds = Array.from(
+        new Set([DEFAULT_PHRASE_SET_ID, ...memberSetIds])
+      );
+      query = query.in("id", accessibleSetIds);
+    }
+
+    if (search.trim()) {
+      query = query.ilike("name", `%${search.trim()}%`);
     }
 
     const { data, error } = await query;
@@ -55,11 +85,13 @@ function usePhraseSets() {
     const processed = data.map((set) => ({
       ...set,
       count: set.vocabulary[0].count,
+      isJoined:
+        set.id === DEFAULT_PHRASE_SET_ID || memberSetIds.includes(set.id),
     }));
 
     setPhraseSets(processed);
     setStatus("ok");
-  }, []);
+  }, [scope, search]);
 
   React.useEffect(() => {
     queueMicrotask(fetchPhraseSets);

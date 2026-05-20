@@ -241,8 +241,8 @@ const PhraseItem = styled.div`
   align-items: center;
   justify-content: space-between;
   margin: 0;
-  margin-left: 2rem;
-  margin-right: 2rem;
+  margin-left: 1rem;
+  margin-right: 1rem;
   padding: 0.45rem 1rem 0.35rem 0.4rem;
   /* background-color: var(--gray85); */
   border-bottom: 1px var(--gray60) solid;

@@ -4,16 +4,21 @@ import supabase from "../supabaseClient";
 import { deepseekAPI, normalizeSentences } from "../utility";
 import Message from "./Message";
 import BusyMessage from "./BusyMessage";
-import Select from "./Select";
 import usePhraseSets from "../hooks/usePhraseSets";
 import { FONT_FAMILY, FONT_SIZE } from "../constants";
 import Button from "./Button";
+import Select from "./Select";
 
-function ContributeForm() {
+function ContributeForm({
+  fixedPhraseSetId = null,
+  hideTitle = false,
+  onSuccess,
+}) {
   const wordInputId = React.useId();
   const contributerInputId = React.useId();
   const notationInputId = React.useId();
   const phraseSetSelectId = React.useId();
+  const hasFixedPhraseSet = fixedPhraseSetId !== null;
 
   const [word, setWord] = React.useState("");
   const [contributor, setContributor] = React.useState("");
@@ -21,14 +26,21 @@ function ContributeForm() {
   const [status, setStatus] = React.useState("free");
   const [errorMsg, setErrorMsg] = React.useState("");
 
-  const { phraseSets, phraseSetsStatus } = usePhraseSets();
-  const [selectedPhraseSet, setSelectedPhraseSet] = React.useState(null);
+  const { phraseSets } = usePhraseSets();
+  const [selectedPhraseSet, setSelectedPhraseSet] = React.useState(
+    hasFixedPhraseSet ? Number(fixedPhraseSetId) : null
+  );
 
   React.useEffect(() => {
+    if (hasFixedPhraseSet) {
+      setSelectedPhraseSet(Number(fixedPhraseSetId));
+      return;
+    }
+
     if (phraseSets.length > 0) {
       setSelectedPhraseSet(phraseSets[0].id);
     }
-  }, [phraseSets]);
+  }, [fixedPhraseSetId, hasFixedPhraseSet, phraseSets]);
 
   async function WordImplement() {
     setStatus("busy");
@@ -118,7 +130,10 @@ function ContributeForm() {
       console.error("插入失败", error.message);
     } else {
       setStatus("success");
+      setWord("");
+      setNotation("");
       console.log("插入成功");
+      onSuccess?.();
     }
     // const {error} = await supabase.from('vocabulary').insert
   }
@@ -130,7 +145,7 @@ function ContributeForm() {
 
   return (
     <Wrapper onSubmit={handleSubmit}>
-      <TitleWrapper>加词</TitleWrapper>
+      {!hideTitle && <TitleWrapper>加词</TitleWrapper>}
 
       {status !== "free" && (
         <StatusWrapper>
@@ -184,32 +199,34 @@ function ContributeForm() {
             disabled={status === "busy"}
           />
         </RowWrapper>
-        {selectedPhraseSet !== null && phraseSets.length > 0 && (
-          <RowWrapper data-required>
-            <LabelWrapper htmlFor={phraseSetSelectId}>词汇集</LabelWrapper>
-            <Select
-              disabled={status === "busy"}
-              id={phraseSetSelectId}
-              value={selectedPhraseSet}
-              onChange={(event) =>
-                setSelectedPhraseSet(Number(event.target.value))
-              }
-            >
-              {phraseSets.map((phraseSet) => (
-                <option key={phraseSet.id} value={phraseSet.id}>
-                  {phraseSet.name}
-                </option>
-              ))}
-            </Select>
-          </RowWrapper>
-        )}
+        {!hasFixedPhraseSet &&
+          selectedPhraseSet !== null &&
+          phraseSets.length > 0 && (
+            <RowWrapper data-required>
+              <LabelWrapper htmlFor={phraseSetSelectId}>词汇集</LabelWrapper>
+              <Select
+                disabled={status === "busy"}
+                id={phraseSetSelectId}
+                value={selectedPhraseSet}
+                onChange={(event) =>
+                  setSelectedPhraseSet(Number(event.target.value))
+                }
+              >
+                {phraseSets.map((phraseSet) => (
+                  <option key={phraseSet.id} value={phraseSet.id}>
+                    {phraseSet.name}
+                  </option>
+                ))}
+              </Select>
+            </RowWrapper>
+          )}
       </FormElementWrapper>
       <ButtonWrapper>
         <Button
           disabled={
             status === "busy" ||
             selectedPhraseSet === null ||
-            phraseSets.length <= 0
+            (!hasFixedPhraseSet && phraseSets.length <= 0)
           }
         >
           提交

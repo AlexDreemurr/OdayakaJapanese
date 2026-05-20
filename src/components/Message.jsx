@@ -1,5 +1,6 @@
 import React from "react";
 import styled from "styled-components";
+import { FONT_SIZE } from "../constants";
 
 const STYLE = {
   error: {
@@ -16,7 +17,7 @@ const STYLE = {
   },
 };
 
-function Message({ type = "info", fontSize = "1.125rem", children }) {
+function Message({ type = "info", fontSize = FONT_SIZE.default, children }) {
   return (
     <Wrapper style={STYLE[type]} $fontSize={fontSize}>
       {children}

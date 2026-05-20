@@ -13,10 +13,34 @@ import ProgressBar from "../ProgressBar";
 import { KatakanaRateContext } from "../../KatakanaRateContext";
 import { useAuth } from "../../hooks/useAuth";
 import UserProfileCard from "../UserProfileCard";
+import Button from "../Button";
+import PhraseSetList from "../PhraseSetList";
+import {
+  AddPhraseSetDialog,
+  DeletePhraseSetDialog,
+  EditPhraseSetDialog,
+} from "../PhraseSetActions";
+import PhraseSetMembersPanel from "../PhraseSetMembersPanel";
+import Icon from "../Icon";
+import UnstyledButton from "../UnstyledButton";
 
 function SettingsPage({ resetAnswerToast }) {
   const { phraseSets, status } = usePhraseSets();
+  const {
+    phraseSets: createdPhraseSets,
+    status: createdStatus,
+    refetchPhraseSets: refetchCreatedPhraseSets,
+  } = usePhraseSets({ scope: "created" });
+  const {
+    phraseSets: joinedPhraseSets,
+    status: joinedStatus,
+    refetchPhraseSets: refetchJoinedPhraseSets,
+  } = usePhraseSets({ scope: "joined" });
   const [selectedSetIds, setSelectedSetIds] = React.useState([]);
+  const [settingsView, setSettingsView] = React.useState("preferences");
+  const [selectionMode, setSelectionMode] = React.useState(false);
+  const [selectedManageSetIds, setSelectedManageSetIds] = React.useState([]);
+  const [focusedManageSet, setFocusedManageSet] = React.useState(null);
   const { katakanaRate, setKatakanaRate } =
     React.useContext(KatakanaRateContext);
 
@@ -60,6 +84,26 @@ function SettingsPage({ resetAnswerToast }) {
     setKatakanaRate(nextValue / 100);
   }
 
+  function handleManageChanged() {
+    setSelectedManageSetIds([]);
+    setFocusedManageSet(null);
+    refetchCreatedPhraseSets();
+    refetchJoinedPhraseSets();
+  }
+
+  const manageablePhraseSets = [...createdPhraseSets, ...joinedPhraseSets]
+    .filter(
+      (phraseSet, index, allPhraseSets) =>
+        allPhraseSets.findIndex((item) => item.id === phraseSet.id) === index
+    );
+  const selectedManagePhraseSets = manageablePhraseSets.filter((phraseSet) =>
+    selectedManageSetIds.includes(phraseSet.id)
+  );
+  const joinedOtherPhraseSets = joinedPhraseSets.filter((phraseSet) => {
+    const ownerId = phraseSet.owner_id ?? phraseSet.user_id;
+    return ownerId !== user?.id;
+  });
+
   return (
     <Wrapper>
       <Title>设置</Title>
@@ -68,55 +112,145 @@ function SettingsPage({ resetAnswerToast }) {
           user={user}
           isLoggedIn={isLoggedIn}
           signOut={signOut}
+          extraAction={
+            <ManageButton
+              onClick={() =>
+                setSettingsView((current) =>
+                  current === "preferences" ? "phraseSet" : "preferences"
+                )
+              }
+            >
+              {settingsView === "preferences" ? "词汇集管理" : "偏好设置"}
+            </ManageButton>
+          }
         />
       </FeatureBlock>
 
-      <FeatureBlock>
-        <Description>切换显示假名的比例</Description>
-        <RateControl>
-          <ProgressBar
-            size="small"
-            value={katakanaRate * 100}
-            onChange={handleKatakanaRateChange}
-            ariaLabel="切换显示假名的比例"
-          />
-          <RateValue>{Math.round(katakanaRate * 100)}%</RateValue>
-        </RateControl>
-      </FeatureBlock>
+      {settingsView === "preferences" ? (
+        <>
+          <FeatureBlock>
+            <Description>切换显示假名的比例</Description>
+            <RateControl>
+              <ProgressBar
+                size="small"
+                value={katakanaRate * 100}
+                onChange={handleKatakanaRateChange}
+                ariaLabel="切换显示假名的比例"
+              />
+              <RateValue>{Math.round(katakanaRate * 100)}%</RateValue>
+            </RateControl>
+          </FeatureBlock>
 
-      <FeatureBlock>
-        <Description>
-          点击词汇集卡片来设置“共享单词练习”的题库范围。
-        </Description>
+          <FeatureBlock>
+            <Description>
+              点击词汇集卡片来设置“共享单词练习”的题库范围。
+            </Description>
 
-        {status === "busy" && (
-          <PhraseSetsLoadingWrapper>
-            <HashLoader />
-          </PhraseSetsLoadingWrapper>
-        )}
-        {status === "error" && (
-          <Message type="error">词汇集加载失败，请稍后重试。</Message>
-        )}
-        {status === "ok" && (
-          <CardGrid>
-            {phraseSets.map((phraseSet) => {
-              const isSelected = selectedSetIds.includes(phraseSet.id);
+            {status === "busy" && (
+              <PhraseSetsLoadingWrapper>
+                <HashLoader />
+              </PhraseSetsLoadingWrapper>
+            )}
+            {status === "error" && (
+              <Message type="error">词汇集加载失败，请稍后重试。</Message>
+            )}
+            {status === "ok" && (
+              <CardGrid>
+                {phraseSets.map((phraseSet) => {
+                  const isSelected = selectedSetIds.includes(phraseSet.id);
 
-              return (
-                <SelectableCard
-                  key={phraseSet.id}
-                  type="button"
-                  phraseSet={phraseSet}
-                  aria-pressed={isSelected}
-                  data-selected={isSelected}
-                  data-status={isSelected ? "已包含" : "未包含"}
-                  onClick={() => handleToggle(phraseSet.id)}
-                />
-              );
-            })}
-          </CardGrid>
-        )}
-      </FeatureBlock>
+                  return (
+                    <SelectableCard
+                      key={phraseSet.id}
+                      type="button"
+                      size="small"
+                      phraseSet={phraseSet}
+                      aria-pressed={isSelected}
+                      data-selected={isSelected}
+                      data-status={isSelected ? "已包含" : "未包含"}
+                      onClick={() => handleToggle(phraseSet.id)}
+                    />
+                  );
+                })}
+              </CardGrid>
+            )}
+          </FeatureBlock>
+        </>
+      ) : (
+        <FeatureBlock>
+          <ManageActions>
+            <EditPhraseSetDialog
+              selectedPhraseSet={selectedManagePhraseSets[0] ?? null}
+              currentUserId={user?.id ?? null}
+              onChanged={handleManageChanged}
+            />
+            <DeletePhraseSetDialog
+              selectedPhraseSets={selectedManagePhraseSets}
+              currentUserId={user?.id ?? null}
+              onChanged={handleManageChanged}
+            />
+            <AddPhraseSetDialog onChanged={handleManageChanged} />
+            <SelectModeButton
+              type="button"
+              aria-label={selectionMode ? "退出选择模式" : "进入选择模式"}
+              aria-pressed={selectionMode}
+              onClick={() => {
+                setSelectionMode((current) => !current);
+                setSelectedManageSetIds([]);
+              }}
+              $active={selectionMode}
+            >
+              <Icon id="select" size="1.3rem" color="black" />
+            </SelectModeButton>
+          </ManageActions>
+
+          <Description>你创建的词汇集</Description>
+          {createdStatus === "busy" && <HashLoader size={32} />}
+          {createdStatus === "error" && (
+            <Message type="error">词汇集加载失败，请稍后重试。</Message>
+          )}
+          {createdStatus === "ok" && (
+            <PhraseSetList
+              phraseSets={createdPhraseSets}
+              variant="fluid"
+              cardSize="small"
+              selectionMode={selectionMode}
+              selectedPhraseSetIds={selectedManageSetIds}
+              onSelectionChange={(phraseSetId, checked) =>
+                setSelectedManageSetIds(checked ? [phraseSetId] : [])
+              }
+              onPhraseSetClick={(phraseSet) => setFocusedManageSet(phraseSet)}
+            />
+          )}
+
+          <Description>你加入的词汇集</Description>
+          {joinedStatus === "busy" && <HashLoader size={32} />}
+          {joinedStatus === "error" && (
+            <Message type="error">词汇集加载失败，请稍后重试。</Message>
+          )}
+          {joinedStatus === "ok" && (
+            <PhraseSetList
+              phraseSets={joinedOtherPhraseSets}
+              variant="fluid"
+              cardSize="small"
+              selectionMode={selectionMode}
+              selectedPhraseSetIds={selectedManageSetIds}
+              onSelectionChange={(phraseSetId, checked) =>
+                setSelectedManageSetIds(checked ? [phraseSetId] : [])
+              }
+              onPhraseSetClick={(phraseSet) => setFocusedManageSet(phraseSet)}
+            />
+          )}
+
+          {focusedManageSet && (
+            <PhraseSetMembersPanel
+              phraseSet={focusedManageSet}
+              currentUserId={user?.id ?? null}
+              onClose={() => setFocusedManageSet(null)}
+            />
+          )}
+        </FeatureBlock>
+      )}
     </Wrapper>
   );
 }
@@ -147,6 +281,26 @@ const Title = styled.h1`
 const Description = styled.p`
   color: var(--gray40);
   font-size: ${FONT_SIZE.default};
+`;
+
+const ManageButton = styled(Button)`
+  width: 9rem;
+  margin: 0;
+  font-size: ${FONT_SIZE.small};
+`;
+
+const ManageActions = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.25rem;
+`;
+
+const SelectModeButton = styled(UnstyledButton)`
+  padding: 0.8rem;
+  color: black;
+  border-radius: 1rem;
+  background-color: ${(p) => (p.$active ? "var(--gray85)" : "transparent")};
 `;
 
 const RateControl = styled.div`
@@ -188,7 +342,6 @@ const PhraseSetsLoadingWrapper = styled.div`
 
 const SelectableCard = styled(PhraseSetCard)`
   width: 100%;
-  height: 112px;
   font-size: ${FONT_SIZE.small};
   transition: box-shadow 120ms ease, opacity 120ms ease;
 

@@ -13,6 +13,7 @@ function FormModal({
   trigger,
   title,
   titleHint,
+  titleAction,
   closeButtonProps = {},
 }) {
   return (
@@ -30,6 +31,10 @@ function FormModal({
               <FormModalCloseIcon />
             </FormModalCloseButton>
           </Dialog.Close>
+
+          {titleAction && (
+            <FormModalTitleAction>{titleAction}</FormModalTitleAction>
+          )}
 
           {(title || titleHint) && (
             <FormModalTitle>
@@ -114,6 +119,12 @@ const FormModalCloseIcon = styled(Icon).attrs({
   size: "1.3rem",
 })`
   transform: translateY(5px);
+`;
+
+const FormModalTitleAction = styled.div`
+  position: absolute;
+  top: 1.2rem;
+  right: 3.5rem;
 `;
 
 const FormModalTitle = styled(Dialog.Title)`

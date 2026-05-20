@@ -13,7 +13,6 @@ import SettingsPage from "./components/pageComponents/SettingsPage";
 import Header from "./components/Header";
 import { CharacterToastOverlay } from "./components/CharacterToast";
 import styled from "styled-components";
-import ContributeForm from "./components/ContributeForm";
 import { KatakanaRateContext } from "./KatakanaRateContext";
 import { TOAST_DELAY } from "./constants";
 
@@ -89,7 +88,6 @@ function App() {
     <KatakanaRateContext.Provider value={{ katakanaRate, setKatakanaRate }}>
       <BrowserRouter basename={import.meta.env.BASE_URL}>
         <Root>
-          <Header />
           <CharacterToastOverlay answerToast={answerToast} />
           <HelperBox />
           <Routes>
@@ -122,7 +120,6 @@ function App() {
               path="/history"
               element={<HistoryPage historyQuizes={historyQuizes} />}
             />
-            <Route path="/contribute" element={<ContributeForm />} />
             <Route path="/phraseSetList" element={<PhraseSetPage />} />
             <Route path="/phraseSet/:phraseSetId" element={<PhraseSetPage />} />
             <Route
@@ -131,6 +128,7 @@ function App() {
             />
           </Routes>
           <HelperBox />
+          <Header />
         </Root>
 
         <GlobalStyles />

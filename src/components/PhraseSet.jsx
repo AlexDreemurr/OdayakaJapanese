@@ -3,12 +3,13 @@ import styled from "styled-components";
 import supabase from "../supabaseClient";
 import Message from "./Message";
 import { HashLoader } from "react-spinners";
-import Button from "./Button";
 import { FONT_FAMILY } from "../constants";
 import Icon from "./Icon";
 import UnstyledButton from "./UnstyledButton";
 import PhraseDialog, { getCompletedSentenceCount } from "./PhraseDialog";
 import { useNavigate } from "react-router-dom";
+import { FormModal } from "./FormModal";
+import ContributeForm from "./ContributeForm";
 
 function toHiraganaText(text) {
   return (text || "")
@@ -39,64 +40,69 @@ function PhraseSet({ phraseSetId }) {
   const [showKana, setShowKana] = useState(false);
   const [sortOrder, setSortOrder] = useState("default"); // ← 新增
   const [starMode, setStarMode] = useState("hidden");
+  const [showContributeForm, setShowContributeForm] = useState(false);
 
-  useEffect(() => {
-    async function fetchData() {
+  const fetchData = React.useCallback(async ({ showLoading = true } = {}) => {
+    if (showLoading) {
       setLoading(true);
-      setError(null);
+    }
+    setError(null);
 
-      const [setResult, phrasesResult] = await Promise.all([
-        supabase
-          .from("vocabulary_sets")
-          .select("*")
-          .eq("id", phraseSetId)
-          .single(),
-        supabase.from("vocabulary").select("*").eq("set_id", phraseSetId),
-      ]);
+    const [setResult, phrasesResult] = await Promise.all([
+      supabase
+        .from("vocabulary_sets")
+        .select("*")
+        .eq("id", phraseSetId)
+        .single(),
+      supabase.from("vocabulary").select("*").eq("set_id", phraseSetId),
+    ]);
 
-      if (setResult.error || setResult.data === null) {
-        setError("not_found");
-      } else if (phrasesResult.error) {
-        setError("fetch_error");
-      } else {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        const phraseRows = phrasesResult.data ?? [];
-        let practiceByVocabularyId = new Map();
+    if (setResult.error || setResult.data === null) {
+      setError("not_found");
+    } else if (phrasesResult.error) {
+      setError("fetch_error");
+    } else {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      const phraseRows = phrasesResult.data ?? [];
+      let practiceByVocabularyId = new Map();
 
-        if (user && phraseRows.length > 0) {
-          const phraseIds = phraseRows.map((phrase) => phrase.id);
-          const { data: practiceRows, error: practiceError } = await supabase
-            .from("vocab_practice")
-            .select("vocabulary_id, correct_counts")
-            .eq("user_id", user.id)
-            .in("vocabulary_id", phraseIds);
+      if (user && phraseRows.length > 0) {
+        const phraseIds = phraseRows.map((phrase) => phrase.id);
+        const { data: practiceRows, error: practiceError } = await supabase
+          .from("vocab_practice")
+          .select("vocabulary_id, correct_counts")
+          .eq("user_id", user.id)
+          .in("vocabulary_id", phraseIds);
 
-          if (!practiceError) {
-            practiceByVocabularyId = new Map(
-              (practiceRows ?? []).map((row) => [row.vocabulary_id, row])
-            );
-          } else {
-            console.error(practiceError.message);
-          }
+        if (!practiceError) {
+          practiceByVocabularyId = new Map(
+            (practiceRows ?? []).map((row) => [row.vocabulary_id, row])
+          );
+        } else {
+          console.error(practiceError.message);
         }
-
-        setSetInfo(setResult.data);
-        setPhrases(
-          phraseRows.map((phrase) => ({
-            ...phrase,
-            practiceCorrectCounts:
-              practiceByVocabularyId.get(phrase.id)?.correct_counts ?? [],
-          }))
-        );
       }
 
-      setLoading(false);
+      setSetInfo(setResult.data);
+      setPhrases(
+        phraseRows.map((phrase) => ({
+          ...phrase,
+          practiceCorrectCounts:
+            practiceByVocabularyId.get(phrase.id)?.correct_counts ?? [],
+        }))
+      );
     }
 
-    fetchData();
+    if (showLoading) {
+      setLoading(false);
+    }
   }, [phraseSetId]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   function getPhraseStarCount(phrase) {
     return getCompletedSentenceCount(phrase.practiceCorrectCounts);
@@ -218,6 +224,9 @@ function PhraseSet({ phraseSetId }) {
           <IconWrapper id="arrowLeft" size="1.3rem" color="var(--gray15)" />
         </UnstyledButton>
         <TitleWrapper>{setInfo.name}</TitleWrapper>
+        <UnstyledButton onClick={() => setShowContributeForm(true)}>
+          <IconWrapper id="plus" size="1.3rem" color="var(--gray15)" />
+        </UnstyledButton>
         <UnstyledButton onClick={handleStarModeToggle}>
           <IconWrapper id={starIconId} size="1.3rem" color="var(--gray15)" />
         </UnstyledButton>
@@ -238,6 +247,25 @@ function PhraseSet({ phraseSetId }) {
           <IconWrapper id="Languages" size="1.3rem" color="var(--gray15)" />
         </UnstyledButton>
       </ButtonGroup>
+
+      {showContributeForm && (
+        <FormModal
+          open
+          onOpenChange={(open) => {
+            if (!open) {
+              setShowContributeForm(false);
+            }
+          }}
+          title="加词"
+          titleHint={setInfo.name}
+        >
+          <ContributeForm
+            fixedPhraseSetId={Number(phraseSetId)}
+            hideTitle
+            onSuccess={() => fetchData({ showLoading: false })}
+          />
+        </FormModal>
+      )}
 
       {/* 当排序为默认时显示的ui */}
       <DefaultWrapper>
@@ -302,8 +330,8 @@ const ButtonGroup = styled.div`
   justify-content: flex-start;
   align-items: center;
   /* padding: 0 2rem; */
-  margin-left: 2rem;
-  margin-right: 2rem;
+  margin-left: 1rem;
+  margin-right: 1rem;
   margin-bottom: 0rem;
   background-color: var(--gray85);
   border-bottom: 1px var(--gray60) solid;

@@ -8,7 +8,7 @@ function getDisplayedValue(value, children) {
   const childArray = React.Children.toArray(children);
   const selectedChild = childArray.find((child) => child.props.value === value);
 
-  return selectedChild.props.children;
+  return selectedChild?.props.children ?? value;
 }
 
 const Select = ({
@@ -41,9 +41,11 @@ const Wrapper = styled.div`
 const NativeSelect = styled.select`
   opacity: 0;
   position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   border-radius: 2px;
+  cursor: pointer;
 `;
 const SelectWrapper = styled.div`
   height: 35px;
@@ -52,6 +54,7 @@ const SelectWrapper = styled.div`
   color: var(--gray15);
   padding: 6px 52px 10px 16px;
   border-radius: 2px;
+  pointer-events: none;
   ${NativeSelect}:hover + & {
     color: black;
   }

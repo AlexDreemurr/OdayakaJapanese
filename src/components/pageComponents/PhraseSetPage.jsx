@@ -4,18 +4,12 @@ import { HashLoader } from "react-spinners";
 import { useParams } from "react-router-dom";
 import PhraseSet from "../PhraseSet";
 import PhraseSetList from "../PhraseSetList";
-import {
-  AddPhraseSetDialog,
-  DeletePhraseSetDialog,
-  EditPhraseSetDialog,
-  JoinPhraseSetDialog,
-} from "../PhraseSetActions";
+import { JoinPhraseSetDialog } from "../PhraseSetActions";
 import Icon from "../Icon";
+import IconInput from "../IconInput";
 import Message from "../Message";
 import UnstyledButton from "../UnstyledButton";
 import usePhraseSets from "../../hooks/usePhraseSets";
-import { useAuth } from "../../hooks/useAuth";
-import { QUERIES } from "../../constants";
 
 function PhraseSetPage() {
   const { phraseSetId } = useParams();
@@ -28,32 +22,25 @@ function PhraseSetPage() {
 }
 
 function PhraseSetIndexPage() {
-  const { phraseSets, status, refetchPhraseSets } = usePhraseSets();
-  const { user } = useAuth();
-  const [selectionMode, setSelectionMode] = React.useState(false);
-  const [selectedPhraseSetIds, setSelectedPhraseSetIds] = React.useState([]);
-
-  const selectedPhraseSets = phraseSets.filter((phraseSet) =>
-    selectedPhraseSetIds.includes(phraseSet.id)
-  );
-
-  function handleSelectionModeToggle() {
-    setSelectionMode((currentMode) => {
-      if (currentMode) {
-        setSelectedPhraseSetIds([]);
-      }
-
-      return !currentMode;
-    });
-  }
-
-  function handlePhraseSetSelectionChange(phraseSetId, checked) {
-    setSelectedPhraseSetIds(checked ? [phraseSetId] : []);
-  }
+  const [viewMode, setViewMode] = React.useState("joined");
+  const [draftSearch, setDraftSearch] = React.useState("");
+  const [submittedSearch, setSubmittedSearch] = React.useState("");
+  const [joiningPhraseSet, setJoiningPhraseSet] = React.useState(null);
+  const { phraseSets, status, refetchPhraseSets } = usePhraseSets({
+    scope: viewMode,
+    search: submittedSearch,
+  });
 
   function handlePhraseSetsChanged() {
-    setSelectedPhraseSetIds([]);
     refetchPhraseSets();
+  }
+
+  function handleSearchKeyDown(event) {
+    if (event.key !== "Enter") {
+      return;
+    }
+
+    setSubmittedSearch(draftSearch.trim());
   }
 
   if (status === "busy") {
@@ -67,33 +54,36 @@ function PhraseSetIndexPage() {
   return (
     <Wrapper>
       <ContentFrame>
-        <ActionIcons>
-          {selectionMode && (
-            <EditPhraseSetDialog
-              selectedPhraseSet={selectedPhraseSets[0] ?? null}
-              currentUserId={user?.id ?? null}
-              onChanged={handlePhraseSetsChanged}
-            />
-          )}
-          {selectionMode && (
-            <DeletePhraseSetDialog
-              selectedPhraseSets={selectedPhraseSets}
-              currentUserId={user?.id ?? null}
-              onChanged={handlePhraseSetsChanged}
-            />
-          )}
-          <JoinPhraseSetDialog onChanged={handlePhraseSetsChanged} />
-          <AddPhraseSetDialog onChanged={refetchPhraseSets} />
-          <SelectModeButton
+        <SearchRow>
+          <IconInput
+            label="搜索词汇集"
+            icon="search"
+            size="large"
+            width="100%"
+            value={draftSearch}
+            placeholder={
+              viewMode === "joined" ? "搜索已加入词汇集" : "搜索公开词汇集"
+            }
+            enterKeyHint="search"
+            onChange={(event) => setDraftSearch(event.target.value)}
+            onKeyDown={handleSearchKeyDown}
+          />
+          <GlobeButton
             type="button"
-            aria-label={selectionMode ? "退出选择模式" : "进入选择模式"}
-            aria-pressed={selectionMode}
-            onClick={handleSelectionModeToggle}
-            $active={selectionMode}
+            aria-label={
+              viewMode === "joined" ? "显示全部公开词汇集" : "显示已加入词汇集"
+            }
+            aria-pressed={viewMode === "public"}
+            onClick={() =>
+              setViewMode((current) =>
+                current === "joined" ? "public" : "joined"
+              )
+            }
+            $active={viewMode === "public"}
           >
-            <Icon id="select" size="1.3rem" color="black" />
-          </SelectModeButton>
-        </ActionIcons>
+            <Icon id="public" size="1.3rem" color="black" />
+          </GlobeButton>
+        </SearchRow>
 
         {status === "error" && (
           <Message type="error">词汇集加载失败，请稍后重试。</Message>
@@ -101,9 +91,20 @@ function PhraseSetIndexPage() {
         {status === "ok" && (
           <PhraseSetList
             phraseSets={phraseSets}
-            selectionMode={selectionMode}
-            selectedPhraseSetIds={selectedPhraseSetIds}
-            onSelectionChange={handlePhraseSetSelectionChange}
+            variant="fluid2"
+            onPhraseSetClick={
+              viewMode === "public"
+                ? (phraseSet) => setJoiningPhraseSet(phraseSet)
+                : undefined
+            }
+          />
+        )}
+        {joiningPhraseSet && (
+          <JoinPhraseSetDialog
+            phraseSet={joiningPhraseSet}
+            onChanged={handlePhraseSetsChanged}
+            onClose={() => setJoiningPhraseSet(null)}
+            trigger={<span />}
           />
         )}
       </ContentFrame>
@@ -117,24 +118,16 @@ const Wrapper = styled.div`
 
 const ContentFrame = styled.div`
   width: 100%;
-  max-width: calc(${200 * 2}px + 0.5rem);
+  max-width: 800px;
   margin: 0 auto;
-  padding: 0 1rem;
-
-  @media ${QUERIES.laptopAndUp} {
-    max-width: calc(${200 * 3}px + ${0.5 * 2}rem);
-  }
+  padding: 0 2rem;
 `;
 
-const ActionIcons = styled.div`
+const SearchRow = styled.div`
   display: flex;
-  justify-content: flex-end;
-  margin-right: 0rem;
-  margin-bottom: 0.3rem;
-
-  @media ${QUERIES.tabletAndUp} {
-    margin-right: -2rem;
-  }
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.7rem;
 `;
 
 const LoadingWrapper = styled.div`
@@ -145,10 +138,11 @@ const LoadingWrapper = styled.div`
   align-items: center;
 `;
 
-const SelectModeButton = styled(UnstyledButton)`
-  padding: 0.8rem;
+const GlobeButton = styled(UnstyledButton)`
+  flex: 0 0 auto;
+  padding: 0.55rem;
   color: black;
-  border-radius: 1rem;
+  border-radius: 999px;
   background-color: ${(p) => (p.$active ? "var(--gray85)" : "transparent")};
 `;
 

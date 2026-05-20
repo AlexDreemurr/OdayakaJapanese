@@ -16,7 +16,7 @@ function getMetadataDisplayName(user) {
   return user?.user_metadata?.display_name ?? "";
 }
 
-function UserProfileCard({ user, isLoggedIn, signOut }) {
+function UserProfileCard({ user, isLoggedIn, signOut, extraAction }) {
   const [displayUser, setDisplayUser] = React.useState(user);
   const {
     avatarPath,
@@ -68,6 +68,17 @@ function UserProfileCard({ user, isLoggedIn, signOut }) {
     } else {
       setShowAuth(true);
     }
+  }
+
+  async function handleSignOut() {
+    const { error } = await signOut();
+
+    if (error) {
+      console.error(error.message);
+      return;
+    }
+
+    window.location.reload();
   }
 
   function startEditingName() {
@@ -182,12 +193,13 @@ function UserProfileCard({ user, isLoggedIn, signOut }) {
 
         <ActionWrapper>
           {isLoggedIn ? (
-            <SmallButton onClick={signOut}>退出</SmallButton>
+            <SmallButton onClick={handleSignOut}>退出</SmallButton>
           ) : (
             <SmallButton onClick={() => setShowAuth(true)}>
               登录 / 注册
             </SmallButton>
           )}
+          {extraAction}
         </ActionWrapper>
       </ProfileInfo>
 
@@ -280,11 +292,16 @@ const EmailText = styled.p`
 `;
 
 const ActionWrapper = styled.div`
-  width: min(100%, 9rem);
+  width: min(100%, 20rem);
   margin-top: 0.2rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 `;
 
 const SmallButton = styled(Button)`
+  width: 9rem;
+  margin: 0;
   font-size: ${FONT_SIZE.small};
 `;
 

@@ -13,6 +13,8 @@ function PhraseSetCard({
   selectionMode = false,
   selected = false,
   onSelectionChange,
+  onOpen,
+  size = "default",
   ...delegated
 }) {
   const checkboxId = React.useId();
@@ -32,32 +34,42 @@ function PhraseSetCard({
   function handleCardClick() {
     if (selectionMode) {
       handleSelectionChange(!selected);
+      return;
+    }
+
+    if (onOpen) {
+      onOpen(phraseSet);
     }
   }
 
   function handleCardKeyDown(event) {
-    if (!selectionMode) {
+    if (!selectionMode && !onOpen) {
       return;
     }
 
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
-      handleSelectionChange(!selected);
+      if (selectionMode) {
+        handleSelectionChange(!selected);
+      } else {
+        onOpen(phraseSet);
+      }
     }
   }
 
   return (
     <Wrapper
-      role={selectionMode ? "button" : undefined}
-      tabIndex={selectionMode ? 0 : undefined}
+      role={selectionMode || onOpen ? "button" : undefined}
+      tabIndex={selectionMode || onOpen ? 0 : undefined}
       onClick={handleCardClick}
       onKeyDown={handleCardKeyDown}
       $selectionMode={selectionMode}
       $selected={selected}
       $showDescription={shouldShowDescription}
+      $size={size}
       {...delegated}
     >
-      {!selectionMode && (
+      {!selectionMode && to && (
         <CardLink to={to} aria-label={`打开${phraseSet.name}`} />
       )}
       <InfoWrapper $hidden={shouldShowDescription}>
@@ -118,12 +130,11 @@ function DescriptionContent({ description, phraseSetId }) {
 
 const Wrapper = styled.div`
   width: 100%;
-  height: 135px;
+  height: ${(p) => (p.$size === "small" ? "112px" : "135px")};
   display: flex;
   justify-content: center;
   align-items: center;
   position: relative;
-  isolation: isolate;
   border-radius: 1rem;
   background-color: var(--gray15);
   color: var(--gray85);
@@ -154,13 +165,12 @@ const Wrapper = styled.div`
   }
 
   @media ${QUERIES.tabletAndUp} {
-    height: 150px;
+    height: ${(p) => (p.$size === "small" ? "112px" : "150px")};
   }
 `;
 const CardLink = styled(LinkWrapper)`
   position: absolute;
   inset: 0;
-  z-index: 0;
   border-radius: inherit;
   background-color: transparent;
   text-decoration: none;
@@ -173,7 +183,6 @@ const DesktopInfo = styled.div`
   position: absolute;
   right: 0.5rem;
   bottom: 0.45rem;
-  z-index: 4;
 
   @media (hover: hover) and (pointer: fine) {
     display: block;
@@ -183,7 +192,6 @@ const MobileInfoButton = styled(UnstyledButton)`
   position: absolute;
   right: 0.5rem;
   bottom: 0.45rem;
-  z-index: 4;
   padding: 0.45rem;
   transform: translate(0.45rem, 0.45rem);
 
@@ -195,14 +203,12 @@ const PrivacyBadge = styled.div`
   position: absolute;
   right: 0.9rem;
   bottom: 0.45rem;
-  z-index: 4;
   padding: 0.45rem;
   transform: translate(-0.45rem, 0.45rem);
   pointer-events: none;
 `;
 const CardText = styled.p`
   position: relative;
-  z-index: 2;
   width: 100%;
   max-height: ${(p) => (p.$showDescription ? "calc(100% - 2rem)" : "none")};
   box-sizing: border-box;
@@ -244,10 +250,8 @@ const Checkbox = styled.input`
   height: 1rem;
   margin: 0;
   cursor: pointer;
-  z-index: 4;
 `;
 const InfoWrapper = styled.div`
-  z-index: 2;
   width: 100%;
   position: absolute;
   padding: 0.4rem 0.6rem;

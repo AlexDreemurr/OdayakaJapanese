@@ -27,6 +27,21 @@ function AuthModal({ onClose }) {
   const [message, setMessage] = React.useState(null);
   const [loading, setLoading] = React.useState(false);
 
+  async function syncUserProfile(user) {
+    if (!user?.id) {
+      return;
+    }
+
+    await supabase.from("user_profiles").upsert(
+      {
+        user_id: user.id,
+        email: user.email,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id" }
+    );
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
     setError(null);
@@ -34,7 +49,7 @@ function AuthModal({ onClose }) {
     setLoading(true);
 
     if (mode === "signin") {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
@@ -42,14 +57,16 @@ function AuthModal({ onClose }) {
       if (error) {
         setError(error.message);
       } else {
-        onClose();
+        await syncUserProfile(data.user);
+        window.location.reload();
       }
     } else {
-      const { error } = await supabase.auth.signUp({ email, password });
+      const { data, error } = await supabase.auth.signUp({ email, password });
 
       if (error) {
         setError(error.message);
       } else {
+        await syncUserProfile(data.user);
         setMessage("注册成功！请查收确认邮件。");
       }
     }

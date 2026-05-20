@@ -2,6 +2,7 @@ create table if not exists public.user_profiles (
   user_id uuid primary key references auth.users(id) on delete cascade,
   avatar_path text,
   display_name text,
+  email text,
   updated_at timestamptz not null default now()
 );
 
@@ -11,7 +12,7 @@ drop policy if exists "Users can read their own profile" on public.user_profiles
 create policy "Users can read their own profile"
   on public.user_profiles
   for select
-  using (auth.uid() = user_id);
+  using (auth.uid() is not null);
 
 drop policy if exists "Users can create their own profile" on public.user_profiles;
 create policy "Users can create their own profile"

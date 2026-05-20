@@ -15,7 +15,6 @@ import {
   Form,
   Input,
   Label,
-  PasswordInput,
   Row,
   StatusArea,
   SubmitButton,
@@ -26,7 +25,6 @@ import {
 function AddPhraseSetDialog({ onChanged }) {
   const nameInputId = React.useId();
   const descriptionInputId = React.useId();
-  const passwordInputId = React.useId();
   const creatorInputId = React.useId();
   const statusSelectId = React.useId();
   const privacySelectId = React.useId();
@@ -34,7 +32,6 @@ function AddPhraseSetDialog({ onChanged }) {
   const [isOpen, setIsOpen] = React.useState(false);
   const [name, setName] = React.useState("");
   const [description, setDescription] = React.useState("");
-  const [password, setPassword] = React.useState("");
   const [creator, setCreator] = React.useState("");
   const [openStatus, setOpenStatus] = React.useState("open");
   const [privacy, setPrivacy] = React.useState("public");
@@ -47,12 +44,6 @@ function AddPhraseSetDialog({ onChanged }) {
     if (!name.trim()) {
       setStatus("error");
       setErrorMsg("词汇集名称不能为空。");
-      return;
-    }
-
-    if (!password.trim()) {
-      setStatus("error");
-      setErrorMsg("创建词汇集需要设置密码。");
       return;
     }
 
@@ -75,7 +66,7 @@ function AddPhraseSetDialog({ onChanged }) {
       p_status: openStatus,
       p_creator: creator.trim() || null,
       p_privacy: privacy,
-      p_password: password.trim(),
+      p_password: null,
       p_user_id: user?.id ?? null,
     });
 
@@ -87,7 +78,6 @@ function AddPhraseSetDialog({ onChanged }) {
 
     setName("");
     setDescription("");
-    setPassword("");
     setCreator("");
     setOpenStatus("open");
     setPrivacy("public");
@@ -171,16 +161,6 @@ function AddPhraseSetDialog({ onChanged }) {
             </CompactRow>
           </TwoColumnRow>
           <Row>
-            <Label htmlFor={passwordInputId}>密码</Label>
-            <PasswordInput
-              id={passwordInputId}
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-              disabled={status === "busy"}
-            />
-          </Row>
-          <Row>
             <Label htmlFor={creatorInputId}>创建者</Label>
             <Input
               id={creatorInputId}
@@ -199,13 +179,9 @@ function AddPhraseSetDialog({ onChanged }) {
   );
 }
 
-function JoinPhraseSetDialog({ onChanged }) {
-  const setIdInputId = React.useId();
-  const passwordInputId = React.useId();
+function JoinPhraseSetDialog({ phraseSet, trigger, onChanged, onClose }) {
 
   const [isOpen, setIsOpen] = React.useState(false);
-  const [inputId, setInputId] = React.useState("");
-  const [inputPassword, setInputPassword] = React.useState("");
   const [status, setStatus] = React.useState("free");
   const [message, setMessage] = React.useState("");
   const [messageType, setMessageType] = React.useState("info");
@@ -213,22 +189,33 @@ function JoinPhraseSetDialog({ onChanged }) {
   function handleOpenChange(nextIsOpen) {
     setIsOpen(nextIsOpen);
 
+    if (!nextIsOpen) {
+      onClose?.();
+    }
+
     if (nextIsOpen) {
-      setInputId("");
-      setInputPassword("");
       setStatus("free");
       setMessage("");
       setMessageType("info");
     }
   }
 
+  React.useEffect(() => {
+    if (phraseSet) {
+      setIsOpen(true);
+      setStatus("free");
+      setMessage("");
+      setMessageType("info");
+    }
+  }, [phraseSet]);
+
   async function handleSubmit(event) {
     event.preventDefault();
 
-    if (!inputId.trim()) {
+    if (!phraseSet?.id) {
       setStatus("error");
       setMessageType("error");
-      setMessage("请输入词汇集 ID。");
+      setMessage("没有选择词汇集。");
       return;
     }
 
@@ -237,8 +224,8 @@ function JoinPhraseSetDialog({ onChanged }) {
     setMessageType("info");
 
     const { data, error } = await supabase.rpc("join_vocabulary_set", {
-      p_set_id: Number(inputId),
-      p_password: inputPassword,
+      p_set_id: Number(phraseSet.id),
+      p_password: null,
     });
 
     if (error) {
@@ -252,18 +239,18 @@ function JoinPhraseSetDialog({ onChanged }) {
       setStatus("success");
       setMessageType("success");
       setMessage("加入成功");
-      setInputId("");
-      setInputPassword("");
       onChanged?.();
       return;
     }
 
     setStatus("error");
     setMessageType("error");
-    if (data === "wrong_password") {
-      setMessage("密码错误");
+    if (data === "private_requires_invite") {
+      setMessage("私有词汇集需要管理员邀请。");
+    } else if (data === "not_authenticated") {
+      setMessage("请先登录后再加入词汇集。");
     } else if (data === "not_found") {
-      setMessage("未找到该词汇集或该词汇集不是私有的");
+      setMessage("未找到该词汇集。");
     } else {
       setMessage("加入失败，请稍后重试。");
     }
@@ -274,9 +261,11 @@ function JoinPhraseSetDialog({ onChanged }) {
       open={isOpen}
       onOpenChange={handleOpenChange}
       trigger={
-        <TriggerButton type="button" aria-label="加入私有词汇集">
+        trigger ?? (
+        <TriggerButton type="button" aria-label="加入公开词汇集">
           <Icon id="public" size="1.3rem" color="black" />
         </TriggerButton>
+        )
       }
       title="加入词汇集"
       titleHint="set_members"
@@ -291,30 +280,9 @@ function JoinPhraseSetDialog({ onChanged }) {
           )}
         </StatusArea>
 
-        <Fields>
-          <Row>
-            <Label htmlFor={setIdInputId}>ID</Label>
-            <Input
-              id={setIdInputId}
-              type="number"
-              min="1"
-              step="1"
-              value={inputId}
-              onChange={(event) => setInputId(event.target.value)}
-              required
-              disabled={status === "busy"}
-            />
-          </Row>
-          <Row>
-            <Label htmlFor={passwordInputId}>密码</Label>
-            <PasswordInput
-              id={passwordInputId}
-              value={inputPassword}
-              onChange={(event) => setInputPassword(event.target.value)}
-              disabled={status === "busy"}
-            />
-          </Row>
-        </Fields>
+        <PermissionMessage>
+          加入公开词汇集「{phraseSet?.name ?? "---"}」？
+        </PermissionMessage>
 
         <ButtonWrapper>
           <SubmitButton disabled={status === "busy"}>加入</SubmitButton>
@@ -329,10 +297,7 @@ function DeletePhraseSetDialog({
   currentUserId,
   onChanged,
 }) {
-  const passwordInputId = React.useId();
-
   const [isOpen, setIsOpen] = React.useState(false);
-  const [password, setPassword] = React.useState("");
   const [status, setStatus] = React.useState("free");
   const [errorMsg, setErrorMsg] = React.useState("");
 
@@ -340,14 +305,15 @@ function DeletePhraseSetDialog({
   const canDeleteSelection =
     hasSelection &&
     selectedPhraseSets.every(
-      (phraseSet) => phraseSet.user_id && phraseSet.user_id === currentUserId
+      (phraseSet) =>
+        (phraseSet.owner_id ?? phraseSet.user_id) &&
+        (phraseSet.owner_id ?? phraseSet.user_id) === currentUserId
     );
 
   function handleOpenChange(nextIsOpen) {
     setIsOpen(nextIsOpen);
 
     if (nextIsOpen) {
-      setPassword("");
       setStatus("free");
       setErrorMsg("");
     }
@@ -368,13 +334,6 @@ function DeletePhraseSetDialog({
       return;
     }
 
-    const inputPassword = password.trim();
-    if (!inputPassword) {
-      setStatus("error");
-      setErrorMsg("请输入词汇集密码。");
-      return;
-    }
-
     setStatus("busy");
     setErrorMsg("");
 
@@ -382,18 +341,12 @@ function DeletePhraseSetDialog({
     for (const selectedId of selectedIds) {
       const { data, error } = await supabase.rpc("delete_vocabulary_set", {
         p_set_id: selectedId,
-        p_password: inputPassword,
+        p_password: null,
       });
 
       if (error) {
         setStatus("error");
         setErrorMsg(error.message);
-        return;
-      }
-
-      if (data === "wrong_password") {
-        setStatus("error");
-        setErrorMsg("词汇集密码不正确。");
         return;
       }
 
@@ -410,7 +363,6 @@ function DeletePhraseSetDialog({
       }
     }
 
-    setPassword("");
     setStatus("success");
     onChanged?.();
   }
@@ -458,16 +410,6 @@ function DeletePhraseSetDialog({
                     ))
                   : "还没有选择词汇集。"}
               </SelectedList>
-              <Row>
-                <Label htmlFor={passwordInputId}>密码</Label>
-                <PasswordInput
-                  id={passwordInputId}
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  required
-                  disabled={status === "busy" || !hasSelection}
-                />
-              </Row>
             </Fields>
 
             <ButtonWrapper>
@@ -488,7 +430,6 @@ function EditPhraseSetDialog({ selectedPhraseSet, currentUserId, onChanged }) {
   const creatorInputId = React.useId();
   const statusSelectId = React.useId();
   const privacySelectId = React.useId();
-  const newPasswordInputId = React.useId();
 
   const [isOpen, setIsOpen] = React.useState(false);
   const [name, setName] = React.useState("");
@@ -496,11 +437,12 @@ function EditPhraseSetDialog({ selectedPhraseSet, currentUserId, onChanged }) {
   const [creator, setCreator] = React.useState("");
   const [openStatus, setOpenStatus] = React.useState("");
   const [privacy, setPrivacy] = React.useState("public");
-  const [newPassword, setNewPassword] = React.useState("");
   const [status, setStatus] = React.useState("free");
   const [errorMsg, setErrorMsg] = React.useState("");
   const canEditSelectedPhraseSet =
-    !!selectedPhraseSet?.user_id && selectedPhraseSet.user_id === currentUserId;
+    !!(selectedPhraseSet?.owner_id ?? selectedPhraseSet?.user_id) &&
+    (selectedPhraseSet?.owner_id ?? selectedPhraseSet?.user_id) ===
+      currentUserId;
 
   function handleOpenChange(nextIsOpen) {
     setIsOpen(nextIsOpen);
@@ -511,7 +453,6 @@ function EditPhraseSetDialog({ selectedPhraseSet, currentUserId, onChanged }) {
       setCreator(selectedPhraseSet?.creator ?? "");
       setOpenStatus(selectedPhraseSet?.status ?? "open");
       setPrivacy(selectedPhraseSet?.privacy ?? "public");
-      setNewPassword("");
       setStatus("free");
       setErrorMsg("");
     }
@@ -540,9 +481,6 @@ function EditPhraseSetDialog({ selectedPhraseSet, currentUserId, onChanged }) {
     const originalCreator = selectedPhraseSet.creator ?? "";
     const originalStatus = selectedPhraseSet.status ?? "open";
     const originalPrivacy = selectedPhraseSet.privacy ?? "public";
-    const nextPassword = newPassword.trim();
-    const hasPasswordChange = nextPassword.length > 0;
-
     const changes = {};
     if (nextName !== originalName) {
       changes.name = nextName;
@@ -562,7 +500,7 @@ function EditPhraseSetDialog({ selectedPhraseSet, currentUserId, onChanged }) {
 
     const hasSetChanges = Object.keys(changes).length > 0;
 
-    if (!hasSetChanges && !hasPasswordChange) {
+    if (!hasSetChanges) {
       setStatus("error");
       setErrorMsg("没有需要修改的内容。");
       return;
@@ -585,27 +523,6 @@ function EditPhraseSetDialog({ selectedPhraseSet, currentUserId, onChanged }) {
       }
     }
 
-    if (hasPasswordChange) {
-      const { data, error } = await supabase.rpc("update_vocabulary_set_password", {
-        p_set_id: selectedPhraseSet.id,
-        p_new_password: nextPassword,
-      });
-
-      if (error) {
-        console.error("修改失败:", error.message);
-        setStatus("error");
-        setErrorMsg(error.message);
-        return;
-      }
-
-      if (data === "not_found") {
-        setStatus("error");
-        setErrorMsg("没有编辑权限或词汇集不存在。");
-        return;
-      }
-    }
-
-    setNewPassword("");
     setStatus("success");
     onChanged?.();
   }
@@ -696,15 +613,6 @@ function EditPhraseSetDialog({ selectedPhraseSet, currentUserId, onChanged }) {
                   id={creatorInputId}
                   value={creator}
                   onChange={(event) => setCreator(event.target.value)}
-                  disabled={status === "busy"}
-                />
-              </Row>
-              <Row>
-                <Label htmlFor={newPasswordInputId}>新密码</Label>
-                <PasswordInput
-                  id={newPasswordInputId}
-                  value={newPassword}
-                  onChange={(event) => setNewPassword(event.target.value)}
                   disabled={status === "busy"}
                 />
               </Row>

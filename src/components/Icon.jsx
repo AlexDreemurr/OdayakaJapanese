@@ -26,6 +26,8 @@ import {
   Award,
   ArrowDownWideNarrow,
   ArrowDownNarrowWide,
+  Search,
+  Plus,
 } from "lucide-react";
 
 const icons = {
@@ -53,10 +55,12 @@ const icons = {
   star: Star,
   starOff: StarOff,
   award: Award,
+  search: Search,
   arrowWideNarrowDown: ArrowDownWideNarrow,
   arrowNarrowWideDown: ArrowDownNarrowWide,
   arrowDownWideNarrow: ArrowDownWideNarrow,
   arrowDownNarrowWide: ArrowDownNarrowWide,
+  plus: Plus,
   "chevron-down": ChevronDown,
 };
 

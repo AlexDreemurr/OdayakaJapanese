@@ -19,8 +19,8 @@ export const AVATAR_SECTIONS = [
     title: "女の子",
     avatars: [
       { id: "female_1", path: "female/female_1.png" },
-      { id: "female_2", path: "female/female_2.png" },
-      { id: "female_3", path: "female/female_3.png" },
+      { id: "female_2", path: "female/female_3.png" },
+      { id: "female_3", path: "female/female_2.png" },
       { id: "female_4", path: "female/female_4.png" },
     ],
   },
@@ -28,7 +28,6 @@ export const AVATAR_SECTIONS = [
     id: "either",
     title: "他のいろいろ",
     avatars: [
-      { id: "fallback", path: null },
       { id: "either_1", path: "either/either_1.png" },
       { id: "either_2", path: "either/either_2.png" },
       { id: "either_3", path: "either/either_3.png" },
@@ -37,12 +36,13 @@ export const AVATAR_SECTIONS = [
       { id: "either_6", path: "either/either_6.png" },
       { id: "either_7", path: "either/either_7.png" },
       { id: "either_8", path: "either/either_8.png" },
+      { id: "fallback", path: null },
     ],
   },
 ];
 
-export const AVATAR_PATHS = AVATAR_SECTIONS.flatMap(
-  (section) => section.avatars.map((avatar) => avatar.path).filter(Boolean)
+export const AVATAR_PATHS = AVATAR_SECTIONS.flatMap((section) =>
+  section.avatars.map((avatar) => avatar.path).filter(Boolean)
 );
 
 export function getAvatarUrl(path) {
