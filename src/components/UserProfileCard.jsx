@@ -5,6 +5,7 @@ import { FONT_FAMILY, FONT_SIZE } from "../constants";
 import { isMissingProfileTable, useUserProfile } from "../hooks/useUserProfile";
 import AuthModal from "./AuthModal";
 import Button from "./Button";
+import EditableText from "./EditableText";
 import SetAvatar from "./SetAvatar";
 import UnstyledButton from "./UnstyledButton";
 import UserAvatar from "./UserAvatar";
@@ -24,8 +25,6 @@ function UserProfileCard({ user, isLoggedIn, signOut, extraAction }) {
     setAvatarPath,
     setDisplayName,
   } = useUserProfile(user);
-  const [draftName, setDraftName] = React.useState("");
-  const [isEditingName, setIsEditingName] = React.useState(false);
   const [status, setStatus] = React.useState("free");
   const [showAuth, setShowAuth] = React.useState(false);
   const [showSetAvatar, setShowSetAvatar] = React.useState(false);
@@ -39,7 +38,6 @@ function UserProfileCard({ user, isLoggedIn, signOut, extraAction }) {
 
     if (!user?.id) {
       setAvatarPath(null);
-      setDraftName("");
       savedProfileRef.current = {
         avatar: { pending: false, value: null },
         name: { pending: false, value: "" },
@@ -49,18 +47,10 @@ function UserProfileCard({ user, isLoggedIn, signOut, extraAction }) {
 
     const metadataDisplayName = getMetadataDisplayName(user);
 
-    if (!savedProfileRef.current.name.pending) {
-      setDraftName(metadataDisplayName);
-    } else if (metadataDisplayName === savedProfileRef.current.name.value) {
+    if (metadataDisplayName === savedProfileRef.current.name.value) {
       savedProfileRef.current.name = { pending: false, value: "" };
     }
   }, [setAvatarPath, setDisplayName, user]);
-
-  React.useEffect(() => {
-    if (!isEditingName && !savedProfileRef.current.name.pending) {
-      setDraftName(displayName);
-    }
-  }, [displayName, isEditingName]);
 
   function handleAvatarClick() {
     if (isLoggedIn) {
@@ -81,24 +71,12 @@ function UserProfileCard({ user, isLoggedIn, signOut, extraAction }) {
     window.location.reload();
   }
 
-  function startEditingName() {
+  async function saveDisplayName(nextDisplayName) {
     if (!isLoggedIn || status === "busy") {
       return;
     }
 
-    setDraftName(displayName);
-    setIsEditingName(true);
-  }
-
-  async function saveDisplayName() {
-    if (!isLoggedIn || status === "busy") {
-      setIsEditingName(false);
-      return;
-    }
-
-    const nextDisplayName = draftName.trim();
     if (nextDisplayName === displayName) {
-      setIsEditingName(false);
       return;
     }
 
@@ -112,9 +90,7 @@ function UserProfileCard({ user, isLoggedIn, signOut, extraAction }) {
 
     if (error) {
       console.error(error.message);
-      setDraftName(displayName);
       setStatus("free");
-      setIsEditingName(false);
       return;
     }
 
@@ -138,21 +114,7 @@ function UserProfileCard({ user, isLoggedIn, signOut, extraAction }) {
     };
     setDisplayUser(data.user);
     setDisplayName(nextDisplayName);
-    setDraftName(nextDisplayName);
     setStatus("free");
-    setIsEditingName(false);
-  }
-
-  function handleNameKeyDown(event) {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      event.currentTarget.blur();
-    }
-
-    if (event.key === "Escape") {
-      setDraftName(displayName);
-      setIsEditingName(false);
-    }
   }
 
   const visibleName =
@@ -169,25 +131,13 @@ function UserProfileCard({ user, isLoggedIn, signOut, extraAction }) {
       </AvatarButton>
 
       <ProfileInfo>
-        {isEditingName ? (
-          <NameInput
-            autoFocus
-            value={draftName}
-            placeholder={DEFAULT_NICKNAME}
-            disabled={status === "busy"}
-            onBlur={saveDisplayName}
-            onChange={(event) => setDraftName(event.target.value)}
-            onKeyDown={handleNameKeyDown}
-          />
-        ) : (
-          <NameButton
-            type="button"
-            disabled={!isLoggedIn || status === "busy"}
-            onClick={startEditingName}
-          >
-            {visibleName}
-          </NameButton>
-        )}
+        <NameEditable
+          value={displayName}
+          displayValue={visibleName}
+          placeholder={DEFAULT_NICKNAME}
+          disabled={!isLoggedIn || status === "busy"}
+          onSave={saveDisplayName}
+        />
 
         <EmailText>{isLoggedIn ? user.email : "登录后同步游玩记录"}</EmailText>
 
@@ -255,7 +205,7 @@ const ProfileInfo = styled.div`
   gap: 0.25rem;
 `;
 
-const NameButton = styled(UnstyledButton)`
+const NameEditable = styled(EditableText)`
   max-width: 100%;
   color: var(--gray15);
   font-family: ${FONT_FAMILY.chinese_primary};
@@ -265,22 +215,6 @@ const NameButton = styled(UnstyledButton)`
 
   &:disabled {
     cursor: default;
-  }
-`;
-
-const NameInput = styled.input`
-  width: min(100%, 14rem);
-  color: var(--gray15);
-  font-family: ${FONT_FAMILY.chinese_primary};
-  font-size: ${FONT_SIZE.default};
-  line-height: 1.35;
-  border: 0;
-  border-bottom: 1px solid var(--gray40);
-  background: transparent;
-  outline: none;
-
-  &:focus {
-    border-bottom-color: var(--gray15);
   }
 `;
 

@@ -3,6 +3,7 @@ import styled from "styled-components";
 import supabase from "../supabaseClient";
 import { FONT_FAMILY, FONT_SIZE } from "../constants";
 import BusyMessage from "./BusyMessage";
+import AlertDialog from "./AlertDialog";
 import Icon from "./Icon";
 import Message from "./Message";
 import Select from "./Select";
@@ -319,9 +320,7 @@ function DeletePhraseSetDialog({
     }
   }
 
-  async function handleSubmit(event) {
-    event.preventDefault();
-
+  async function handleDelete() {
     if (!hasSelection) {
       setStatus("error");
       setErrorMsg("请先选择要删除的词汇集。");
@@ -379,7 +378,7 @@ function DeletePhraseSetDialog({
       title="删除词汇集"
       titleHint={`${selectedPhraseSets.length} 个已选`}
     >
-      <Form onSubmit={handleSubmit}>
+      <Form>
         <StatusArea>
           {status === "busy" && <BusyMessage>删除中</BusyMessage>}
           {status === "error" && (
@@ -413,9 +412,21 @@ function DeletePhraseSetDialog({
             </Fields>
 
             <ButtonWrapper>
-              <SubmitButton disabled={status === "busy" || !hasSelection}>
-                删除
-              </SubmitButton>
+              <AlertDialog
+                title="删除词汇集"
+                description={`确定要删除已选择的 ${selectedPhraseSets.length} 个词汇集吗？这个操作不能撤销。`}
+                confirmText="确认删除"
+                confirmDisabled={status === "busy" || !hasSelection}
+                onConfirm={handleDelete}
+                trigger={
+                  <SubmitButton
+                    nativeType="button"
+                    disabled={status === "busy" || !hasSelection}
+                  >
+                    删除
+                  </SubmitButton>
+                }
+              />
             </ButtonWrapper>
           </>
         )}

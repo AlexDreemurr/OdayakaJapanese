@@ -9,7 +9,9 @@ import {
   StatusArea,
   SubmitButton,
 } from "./FormModal";
+import AlertDialog from "./AlertDialog";
 import IconInput from "./IconInput";
+import Icon from "./Icon";
 import Message from "./Message";
 import UnstyledButton from "./UnstyledButton";
 import UserAvatar from "./UserAvatar";
@@ -24,7 +26,12 @@ function getDisplayName(profile) {
   return profile?.display_name || profile?.email || "未命名用户";
 }
 
-function PhraseSetMembersPanel({ phraseSet, currentUserId, onClose }) {
+function PhraseSetMembersPanel({
+  phraseSet,
+  currentUserId,
+  onClose,
+  onChanged,
+}) {
   const [members, setMembers] = React.useState([]);
   const [memberSearch, setMemberSearch] = React.useState("");
   const [editingRoleUserId, setEditingRoleUserId] = React.useState(null);
@@ -39,6 +46,10 @@ function PhraseSetMembersPanel({ phraseSet, currentUserId, onClose }) {
   const canManagePermissions = members.some(
     (member) => member.user_id === currentUserId && member.role === "owner"
   );
+  const currentMember = members.find(
+    (member) => member.user_id === currentUserId
+  );
+  const canLeaveSet = Boolean(currentMember && currentMember.role !== "owner");
   const normalizedMemberSearch = memberSearch.trim().toLowerCase();
   const filteredMembers = normalizedMemberSearch
     ? members.filter((member) => {
@@ -121,6 +132,38 @@ function PhraseSetMembersPanel({ phraseSet, currentUserId, onClose }) {
     });
   }
 
+  async function handleRemoveMember(member) {
+    const { data, error } = await supabase.rpc("remove_set_member", {
+      p_set_id: phraseSet.id,
+      p_user_id: member.user_id,
+    });
+
+    if (error || data !== "ok") {
+      console.error(error?.message ?? data);
+      return;
+    }
+
+    setMembers((currentMembers) =>
+      currentMembers.filter(
+        (currentMember) => currentMember.user_id !== member.user_id
+      )
+    );
+  }
+
+  async function handleLeaveSet() {
+    const { data, error } = await supabase.rpc("leave_set_member", {
+      p_set_id: phraseSet.id,
+    });
+
+    if (error || data !== "ok") {
+      console.error(error?.message ?? data);
+      return;
+    }
+
+    onChanged?.();
+    onClose?.();
+  }
+
   const fetchMembers = React.useCallback(async () => {
     if (!phraseSet?.id) return;
 
@@ -175,10 +218,23 @@ function PhraseSetMembersPanel({ phraseSet, currentUserId, onClose }) {
       title="成员"
       titleHint={phraseSet.name}
       titleAction={
-        canInvite ? (
-          <InviteButton type="button" onClick={() => setShowInvite(true)}>
-            邀请
-          </InviteButton>
+        canInvite || canLeaveSet ? (
+          <>
+          {canInvite && (
+            <InviteButton type="button" onClick={() => setShowInvite(true)}>
+              邀请
+            </InviteButton>
+          )}
+          {canLeaveSet && (
+            <AlertDialog
+              title="退出词汇集"
+              description={`确定要退出「${phraseSet.name}」吗？如果这是私有词汇集，你将不再能够访问。`}
+              confirmText="确认退出"
+              onConfirm={handleLeaveSet}
+              trigger={<LeaveButton type="button">退出</LeaveButton>}
+            />
+          )}
+          </>
         ) : null
       }
     >
@@ -245,6 +301,24 @@ function PhraseSetMembersPanel({ phraseSet, currentUserId, onClose }) {
                       <MemberRole>{getRoleLabel(member.role)}</MemberRole>
                     )}
                   </MemberInfo>
+                  {canManagePermissions && member.role !== "owner" && (
+                    <AlertDialog
+                      title="删除成员"
+                      description={`确定要将「${getDisplayName(
+                        member.profile
+                      )}」从这个词汇集中移除吗？如果这是私有词汇集，对方将不再能够访问。`}
+                      confirmText="确认删除"
+                      onConfirm={() => handleRemoveMember(member)}
+                      trigger={
+                        <RemoveMemberButton
+                          type="button"
+                          aria-label={`删除${getDisplayName(member.profile)}`}
+                        >
+                          <Icon id="close" size="1rem" />
+                        </RemoveMemberButton>
+                      }
+                    />
+                  )}
                 </MemberItem>
               ))}
             </MemberList>
@@ -420,6 +494,23 @@ const InviteButton = styled(UnstyledButton)`
   }
 `;
 
+const LeaveButton = styled(UnstyledButton)`
+  padding: 0;
+  color: var(--red15);
+  font-size: ${FONT_SIZE.small};
+  text-decoration: underline;
+  white-space: nowrap;
+
+  &:active {
+    color: var(--red25);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--red15);
+    outline-offset: 2px;
+  }
+`;
+
 const SubtleText = styled.p`
   color: var(--gray40);
   font-size: ${FONT_SIZE.small};
@@ -440,6 +531,7 @@ const MemberItem = styled.div`
 
 const MemberInfo = styled.div`
   min-width: 0;
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
@@ -480,6 +572,21 @@ const RoleSelect = styled.select`
   font-size: ${FONT_SIZE.tiny};
   color: var(--gray15);
   width: fit-content;
+`;
+
+const RemoveMemberButton = styled(UnstyledButton)`
+  flex: 0 0 auto;
+  padding: 0.35rem;
+  color: var(--gray40);
+
+  &:hover {
+    color: var(--gray15);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--gray40);
+    outline-offset: 2px;
+  }
 `;
 
 const CandidateList = styled.div`

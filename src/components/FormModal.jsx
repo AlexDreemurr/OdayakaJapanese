@@ -125,6 +125,9 @@ const FormModalTitleAction = styled.div`
   position: absolute;
   top: 1.2rem;
   right: 3.5rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.65rem;
 `;
 
 const FormModalTitle = styled(Dialog.Title)`

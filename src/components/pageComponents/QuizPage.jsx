@@ -11,6 +11,7 @@ import styled from "styled-components";
 import supabase from "../../supabaseClient";
 import { HashLoader } from "react-spinners";
 import { KatakanaRateContext } from "../../KatakanaRateContext";
+import Message from "../Message";
 
 function QuizPage({
   source,
@@ -34,6 +35,18 @@ function QuizPage({
   const [curQuizNum, setCurQuizNum] = React.useState(1);
   const [userAnswer, setUserAnswer] = React.useState("");
   const [status, setStatus] = React.useState("free");
+
+  const loadSharedDictQuiz = React.useCallback(() => {
+    fetchSharedDictQuiz(supabase, katakanaRate).then((nextQuizObject) => {
+      if (!nextQuizObject) {
+        setStatus("empty");
+        return;
+      }
+
+      setQuizObject(nextQuizObject);
+      setStatus("free");
+    });
+  }, [katakanaRate]);
 
   React.useEffect(() => {
     return () => {
@@ -63,12 +76,9 @@ function QuizPage({
           setStatus("free");
         });
     } else {
-      fetchSharedDictQuiz(supabase, katakanaRate).then((quizObject) => {
-        setQuizObject(quizObject);
-        setStatus("free");
-      });
+      loadSharedDictQuiz();
     }
-  }, []);
+  }, [loadSharedDictQuiz, source]);
 
   /* 更新下一道题目 */
   React.useEffect(() => {
@@ -82,13 +92,10 @@ function QuizPage({
       setUserAnswer(null);
       setStatus("free");
     } else {
-      fetchSharedDictQuiz(supabase, katakanaRate).then((quizObject) => {
-        setQuizObject(quizObject);
-        setUserAnswer(null);
-        setStatus("free");
-      });
+      loadSharedDictQuiz();
+      setUserAnswer(null);
     }
-  }, [curQuizNum]);
+  }, [curQuizNum, grammars, loadSharedDictQuiz, source]);
 
   /* 用户提交本题后，将该题储存至localStorage */
   React.useEffect(() => {
@@ -114,7 +121,10 @@ function QuizPage({
   return (
     <Main>
       {status === "busy" && <HashLoader />}
-      {status !== "busy" && !isChecking && (
+      {status === "empty" && (
+        <Message>当前没有可用的共享单词题库，请先加入一个词汇集。</Message>
+      )}
+      {status === "free" && !isChecking && (
         <SingleSelect
           source={quizObject}
           userAnswer={userAnswer}
@@ -125,7 +135,7 @@ function QuizPage({
           }}
         />
       )}
-      {status !== "busy" && isChecking && (
+      {status === "free" && isChecking && (
         <QuizAnswer
           quizObject={quizObject}
           userAnswer={userAnswer}

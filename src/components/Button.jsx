@@ -20,6 +20,7 @@ const STYLE = {
 export default function Button({
   as = "",
   type = "default",
+  nativeType,
   children,
   ...delegated
 }) {
@@ -28,7 +29,12 @@ export default function Button({
   */
 
   return (
-    <Wrapper as={as || "button"} style={STYLE[type]} {...delegated}>
+    <Wrapper
+      as={as || "button"}
+      type={nativeType}
+      style={STYLE[type]}
+      {...delegated}
+    >
       {children}
     </Wrapper>
   );

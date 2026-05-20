@@ -25,7 +25,11 @@ import Icon from "../Icon";
 import UnstyledButton from "../UnstyledButton";
 
 function SettingsPage({ resetAnswerToast }) {
-  const { phraseSets, status } = usePhraseSets();
+  const {
+    phraseSets,
+    status,
+    refetchPhraseSets: refetchAccessiblePhraseSets,
+  } = usePhraseSets();
   const {
     phraseSets: createdPhraseSets,
     status: createdStatus,
@@ -57,7 +61,12 @@ function SettingsPage({ resetAnswerToast }) {
       storedIds === null
         ? availableIds
         : storedIds.filter((id) => availableIds.includes(id));
-    const safeIds = initialIds.length > 0 ? initialIds : availableIds;
+    const safeIds =
+      initialIds.length > 0
+        ? initialIds
+        : availableIds.length > 0
+        ? [availableIds[0]]
+        : [];
 
     setSelectedSetIds(safeIds);
     storeSharedDictSetIds(safeIds);
@@ -87,6 +96,7 @@ function SettingsPage({ resetAnswerToast }) {
   function handleManageChanged() {
     setSelectedManageSetIds([]);
     setFocusedManageSet(null);
+    refetchAccessiblePhraseSets();
     refetchCreatedPhraseSets();
     refetchJoinedPhraseSets();
   }
@@ -205,7 +215,11 @@ function SettingsPage({ resetAnswerToast }) {
           </ManageActions>
 
           <Description>你创建的词汇集</Description>
-          {createdStatus === "busy" && <HashLoader size={32} />}
+          {createdStatus === "busy" && (
+            <PhraseSetsLoadingWrapper>
+              <HashLoader size={32} />
+            </PhraseSetsLoadingWrapper>
+          )}
           {createdStatus === "error" && (
             <Message type="error">词汇集加载失败，请稍后重试。</Message>
           )}
@@ -224,7 +238,11 @@ function SettingsPage({ resetAnswerToast }) {
           )}
 
           <Description>你加入的词汇集</Description>
-          {joinedStatus === "busy" && <HashLoader size={32} />}
+          {joinedStatus === "busy" && (
+            <PhraseSetsLoadingWrapper>
+              <HashLoader size={32} />
+            </PhraseSetsLoadingWrapper>
+          )}
           {joinedStatus === "error" && (
             <Message type="error">词汇集加载失败，请稍后重试。</Message>
           )}
@@ -247,6 +265,7 @@ function SettingsPage({ resetAnswerToast }) {
               phraseSet={focusedManageSet}
               currentUserId={user?.id ?? null}
               onClose={() => setFocusedManageSet(null)}
+              onChanged={handleManageChanged}
             />
           )}
         </FeatureBlock>
@@ -337,7 +356,7 @@ const PhraseSetsLoadingWrapper = styled.div`
   width: 100%;
   display: flex;
   justify-content: center;
-  padding-top: 1.5rem;
+  padding: 1.5rem 0;
 `;
 
 const SelectableCard = styled(PhraseSetCard)`

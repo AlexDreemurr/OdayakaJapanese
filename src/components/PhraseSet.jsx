@@ -3,13 +3,14 @@ import styled from "styled-components";
 import supabase from "../supabaseClient";
 import Message from "./Message";
 import { HashLoader } from "react-spinners";
-import { FONT_FAMILY } from "../constants";
+import { FONT_FAMILY, QUERIES } from "../constants";
 import Icon from "./Icon";
 import UnstyledButton from "./UnstyledButton";
 import PhraseDialog, { getCompletedSentenceCount } from "./PhraseDialog";
 import { useNavigate } from "react-router-dom";
 import { FormModal } from "./FormModal";
 import ContributeForm from "./ContributeForm";
+import IconActionDropdown from "./IconActionDropdown";
 
 function toHiraganaText(text) {
   return (text || "")
@@ -41,64 +42,89 @@ function PhraseSet({ phraseSetId }) {
   const [sortOrder, setSortOrder] = useState("default"); // ← 新增
   const [starMode, setStarMode] = useState("hidden");
   const [showContributeForm, setShowContributeForm] = useState(false);
+  const [canEditPhrases, setCanEditPhrases] = useState(false);
 
-  const fetchData = React.useCallback(async ({ showLoading = true } = {}) => {
-    if (showLoading) {
-      setLoading(true);
-    }
-    setError(null);
+  const fetchData = React.useCallback(
+    async ({ showLoading = true } = {}) => {
+      if (showLoading) {
+        setLoading(true);
+      }
+      setError(null);
 
-    const [setResult, phrasesResult] = await Promise.all([
-      supabase
-        .from("vocabulary_sets")
-        .select("*")
-        .eq("id", phraseSetId)
-        .single(),
-      supabase.from("vocabulary").select("*").eq("set_id", phraseSetId),
-    ]);
+      const [setResult, phrasesResult] = await Promise.all([
+        supabase
+          .from("vocabulary_sets")
+          .select("*")
+          .eq("id", phraseSetId)
+          .single(),
+        supabase.from("vocabulary").select("*").eq("set_id", phraseSetId),
+      ]);
 
-    if (setResult.error || setResult.data === null) {
-      setError("not_found");
-    } else if (phrasesResult.error) {
-      setError("fetch_error");
-    } else {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      const phraseRows = phrasesResult.data ?? [];
-      let practiceByVocabularyId = new Map();
+      if (setResult.error || setResult.data === null) {
+        setError("not_found");
+      } else if (phrasesResult.error) {
+        setError("fetch_error");
+      } else {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        const phraseRows = phrasesResult.data ?? [];
+        let practiceByVocabularyId = new Map();
+        let nextCanEditPhrases = false;
 
-      if (user && phraseRows.length > 0) {
-        const phraseIds = phraseRows.map((phrase) => phrase.id);
-        const { data: practiceRows, error: practiceError } = await supabase
-          .from("vocab_practice")
-          .select("vocabulary_id, correct_counts")
-          .eq("user_id", user.id)
-          .in("vocabulary_id", phraseIds);
+        if (user) {
+          const { data: membership, error: membershipError } = await supabase
+            .from("set_members")
+            .select("role, can_edit_phrases")
+            .eq("user_id", user.id)
+            .eq("set_id", phraseSetId)
+            .maybeSingle();
 
-        if (!practiceError) {
-          practiceByVocabularyId = new Map(
-            (practiceRows ?? []).map((row) => [row.vocabulary_id, row])
-          );
-        } else {
-          console.error(practiceError.message);
+          if (!membershipError && membership) {
+            nextCanEditPhrases =
+              membership.role === "owner" ||
+              (membership.role === "admin" && membership.can_edit_phrases);
+          } else if (membershipError) {
+            console.error(membershipError.message);
+          }
+
+          if (phraseRows.length > 0) {
+            const phraseIds = phraseRows.map((phrase) => phrase.id);
+            const { data: practiceRows, error: practiceError } = await supabase
+              .from("vocab_practice")
+              .select("vocabulary_id, correct_counts")
+              .eq("user_id", user.id)
+              .in("vocabulary_id", phraseIds);
+
+            if (!practiceError) {
+              practiceByVocabularyId = new Map(
+                (practiceRows ?? []).map((row) => [row.vocabulary_id, row])
+              );
+            } else {
+              console.error(practiceError.message);
+            }
+          } else {
+            practiceByVocabularyId = new Map();
+          }
         }
+
+        setSetInfo(setResult.data);
+        setCanEditPhrases(nextCanEditPhrases);
+        setPhrases(
+          phraseRows.map((phrase) => ({
+            ...phrase,
+            practiceCorrectCounts:
+              practiceByVocabularyId.get(phrase.id)?.correct_counts ?? [],
+          }))
+        );
       }
 
-      setSetInfo(setResult.data);
-      setPhrases(
-        phraseRows.map((phrase) => ({
-          ...phrase,
-          practiceCorrectCounts:
-            practiceByVocabularyId.get(phrase.id)?.correct_counts ?? [],
-        }))
-      );
-    }
-
-    if (showLoading) {
-      setLoading(false);
-    }
-  }, [phraseSetId]);
+      if (showLoading) {
+        setLoading(false);
+      }
+    },
+    [phraseSetId]
+  );
 
   useEffect(() => {
     fetchData();
@@ -216,6 +242,40 @@ function PhraseSet({ phraseSetId }) {
   const sortLabel = { default: "默认顺序", asc: "あ→ん", desc: "ん→あ" }[
     sortOrder
   ];
+  const actionItems = [
+    {
+      icon: "plus",
+      label: "添加词语",
+      onSelect: () => setShowContributeForm(true),
+    },
+    {
+      icon: starIconId,
+      label:
+        starMode === "hidden"
+          ? "隐藏星标"
+          : starMode === "visible"
+          ? "显示星标"
+          : starMode === "starsDesc"
+          ? "按星标降序"
+          : "按星标升序",
+      onSelect: handleStarModeToggle,
+    },
+    {
+      icon:
+        sortOrder === "default"
+          ? "ArrowUpDown"
+          : sortOrder === "asc"
+          ? "ArrowDownAZ"
+          : "ArrowDownZA",
+      label: `排序：${sortLabel}`,
+      onSelect: handleSortToggle,
+    },
+    {
+      icon: "Languages",
+      label: showKana ? "显示假名" : "显示原词",
+      onSelect: () => setShowKana((prev) => !prev),
+    },
+  ];
 
   return (
     <Wrapper>
@@ -224,28 +284,33 @@ function PhraseSet({ phraseSetId }) {
           <IconWrapper id="arrowLeft" size="1.3rem" color="var(--gray15)" />
         </UnstyledButton>
         <TitleWrapper>{setInfo.name}</TitleWrapper>
-        <UnstyledButton onClick={() => setShowContributeForm(true)}>
-          <IconWrapper id="plus" size="1.3rem" color="var(--gray15)" />
-        </UnstyledButton>
-        <UnstyledButton onClick={handleStarModeToggle}>
-          <IconWrapper id={starIconId} size="1.3rem" color="var(--gray15)" />
-        </UnstyledButton>
-        <UnstyledButton onClick={handleSortToggle}>
-          <IconWrapper
-            id={
-              sortOrder === "default"
-                ? "ArrowUpDown"
-                : sortOrder === "asc"
-                ? "ArrowDownAZ"
-                : "ArrowDownZA"
-            }
-            size="1.3rem"
-            color="var(--gray15)"
-          />
-        </UnstyledButton>
-        <UnstyledButton onClick={() => setShowKana((prev) => !prev)}>
-          <IconWrapper id="Languages" size="1.3rem" color="var(--gray15)" />
-        </UnstyledButton>
+        <DesktopActions>
+          <UnstyledButton onClick={() => setShowContributeForm(true)}>
+            <IconWrapper id="plus" size="1.3rem" color="var(--gray15)" />
+          </UnstyledButton>
+          <UnstyledButton onClick={handleStarModeToggle}>
+            <IconWrapper id={starIconId} size="1.3rem" color="var(--gray15)" />
+          </UnstyledButton>
+          <UnstyledButton onClick={handleSortToggle}>
+            <IconWrapper
+              id={
+                sortOrder === "default"
+                  ? "ArrowUpDown"
+                  : sortOrder === "asc"
+                  ? "ArrowDownAZ"
+                  : "ArrowDownZA"
+              }
+              size="1.3rem"
+              color="var(--gray15)"
+            />
+          </UnstyledButton>
+          <UnstyledButton onClick={() => setShowKana((prev) => !prev)}>
+            <IconWrapper id="Languages" size="1.3rem" color="var(--gray15)" />
+          </UnstyledButton>
+        </DesktopActions>
+        <MobileActions>
+          <IconActionDropdown actions={actionItems} />
+        </MobileActions>
       </ButtonGroup>
 
       {showContributeForm && (
@@ -277,6 +342,8 @@ function PhraseSet({ phraseSetId }) {
               showKana={showKana}
               showStars={showStars}
               textIndent="2rem"
+              canEdit={canEditPhrases}
+              onChanged={() => fetchData({ showLoading: false })}
             />
           ))}
       </DefaultWrapper>
@@ -295,6 +362,8 @@ function PhraseSet({ phraseSetId }) {
                     showKana={showKana}
                     showStars={showStars}
                     textIndent="3rem"
+                    canEdit={canEditPhrases}
+                    onChanged={() => fetchData({ showLoading: false })}
                   />
                 ))}
               </PhraseItems>
@@ -313,6 +382,7 @@ const Wrapper = styled.div`
   display: flex;
   flex-direction: column;
   gap: 0rem;
+  margin-top: 0.5rem;
   padding: 0 0rem;
 `;
 const LoadingWrapper = styled.div`
@@ -335,6 +405,20 @@ const ButtonGroup = styled.div`
   margin-bottom: 0rem;
   background-color: var(--gray85);
   border-bottom: 1px var(--gray60) solid;
+`;
+const DesktopActions = styled.div`
+  display: none;
+
+  @media ${QUERIES.tabletAndUp} {
+    display: flex;
+  }
+`;
+const MobileActions = styled.div`
+  display: flex;
+
+  @media ${QUERIES.tabletAndUp} {
+    display: none;
+  }
 `;
 const DefaultWrapper = styled.div``;
 const PhraseGroups = styled.div`
@@ -364,8 +448,7 @@ const InitialLetter = styled.h3`
 const TitleWrapper = styled.p`
   margin-right: auto;
   font-size: 1rem;
-  margin-left: 1rem;
-  margin-top: -0.04rem;
+  margin-left: 0.5rem;
   font-weight: 500;
   color: var(--gray15);
   overflow: auto;

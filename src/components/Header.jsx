@@ -42,11 +42,14 @@ const Wrapper = styled.header`
   margin: auto;
   position: fixed;
   top: 0;
+  height: var(--header-height);
   display: flex;
   gap: 1rem;
   align-items: center;
   padding: 0 1rem;
   isolation: isolate;
+  z-index: 30;
+  overflow: hidden;
 
   @media ${QUERIES.tabletAndUp} {
     padding-left: 1.3rem;
@@ -59,9 +62,14 @@ const TitleDesktop = styled(LinkWrapper)`
   color: var(--gray85);
   text-decoration: none;
   letter-spacing: 0;
+  line-height: 1;
   font-family: ${FONT_FAMILY.japanese_secondary};
-  margin: 0.8rem 0;
+  margin: 0;
   margin-right: auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 
   display: none;
   @media ${QUERIES.tabletAndUp} {
@@ -86,6 +94,7 @@ const SpanMobile = styled.span`
 
 const Nav = styled.nav`
   font-size: 1.1rem;
+  flex-shrink: 0;
   display: none;
 
   @media ${QUERIES.laptopAndUp} {
@@ -96,6 +105,7 @@ const Nav = styled.nav`
 
 const MenuWrapper = styled.div`
   display: flex;
+  flex-shrink: 0;
 
   @media ${QUERIES.laptopAndUp} {
     display: none;

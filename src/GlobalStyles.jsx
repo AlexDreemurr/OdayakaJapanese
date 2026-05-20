@@ -40,6 +40,8 @@ const GlobalStyles = createGlobalStyle`
     --gold30: hsl(50deg 60% 30%);
     --gold25: hsl(50deg 60% 25%);
     --gold15: hsl(50deg 20% 15%);
+
+    --header-height: 3.5rem;
   }
 
   body {

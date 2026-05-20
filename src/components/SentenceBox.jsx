@@ -42,6 +42,8 @@ const Answer = styled.span`
   color: var(--gray85);
   border-radius: 0.5rem;
   padding: 0rem 0.4rem 0rem 0.4rem;
+  margin-left: 0.1rem;
+  margin-right: 0.1rem;
   /* border: 1px black solid; */
   display: inline-block;
   text-indent: 0;

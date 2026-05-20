@@ -63,6 +63,7 @@ const Overlay = styled(Dialog.Overlay)`
   position: fixed;
   inset: 0;
   background-color: var(--transparentGray15);
+  z-index: 100;
 `;
 const Content = styled(Dialog.Content)`
   position: fixed;
@@ -73,6 +74,7 @@ const Content = styled(Dialog.Content)`
   padding: 1.1rem;
   background-color: var(--gray85);
   color: var(--gray15);
+  z-index: 101;
 
   display: flex;
   flex-direction: column;

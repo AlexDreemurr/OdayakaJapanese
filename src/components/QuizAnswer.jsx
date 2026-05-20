@@ -4,6 +4,7 @@ import React from "react";
 import SentenceBox from "./SentenceBox";
 import { PacmanLoader } from "react-spinners";
 import { deepseekAPI, getSentenceText } from "../utility";
+import PitchReading from "./PitchReading";
 
 export default function QuizAnswer({
   quizObject,
@@ -63,7 +64,16 @@ export default function QuizAnswer({
       <TypoWrapper>
         <Grammar>
           {quizObject.form}
-          {!!displayReading && `(${displayReading})`}
+          {!!displayReading && (
+            <>
+              （
+              <AnswerPitchReading
+                reading={displayReading}
+                pitch={quizObject.vocabularyPitch}
+              />
+              ）
+            </>
+          )}
         </Grammar>
         的含义：{quizObject.meaning}
       </TypoWrapper>
@@ -97,6 +107,9 @@ const Grammar = styled.span`
   display: inline-block;
   text-indent: 0;
   margin-right: 1px;
+`;
+const AnswerPitchReading = styled(PitchReading)`
+  font-size: inherit;
 `;
 const TypoWrapper = styled.p`
   padding-left: 1.5rem;

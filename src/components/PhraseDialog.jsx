@@ -9,11 +9,11 @@ import Icon from "./Icon";
 import { Star } from "lucide-react";
 import { BarLoader } from "react-spinners";
 import { formatToChinaTime } from "../utility";
-import VisuallyHidden from "./VisuallyHidden";
-
-const SMALL_KANA = new Set(
-  "ぁぃぅぇぉゃゅょゎァィゥェォャュョヮㇰㇱㇲㇳㇴㇵㇶㇷㇸㇹㇺㇻㇼㇽㇾㇿ"
-);
+import PitchReading, { getMoras } from "./PitchReading";
+import supabase from "../supabaseClient";
+import AlertDialog from "./AlertDialog";
+import { FormModal } from "./FormModal";
+import EditableText, { EditableTextInput } from "./EditableText";
 
 function getCorrectCounts(correctCounts) {
   if (!Array.isArray(correctCounts)) {
@@ -30,84 +30,36 @@ export function getCompletedSentenceCount(correctCounts) {
   );
 }
 
-function getPitchNumber(pitch) {
-  if (pitch === null || pitch === undefined || pitch === "") {
-    return null;
-  }
-
-  const pitchNumber = Number(pitch);
-  return Number.isInteger(pitchNumber) && pitchNumber >= 0 ? pitchNumber : null;
-}
-
-function getMoras(reading = "") {
-  return Array.from(String(reading).trim()).reduce((moras, character) => {
-    if (SMALL_KANA.has(character) && moras.length > 0) {
-      moras[moras.length - 1] += character;
-    } else {
-      moras.push(character);
-    }
-
-    return moras;
-  }, []);
-}
-
-function getMoraTone(index, pitch) {
-  if (pitch === 0) {
-    return index === 0 ? "low" : "high";
-  }
-
-  if (pitch === 1) {
-    return index === 0 ? "high" : "low";
-  }
-
-  return index > 0 && index < pitch ? "high" : "low";
-}
-
-function PitchReading({ reading, pitch }) {
-  const pitchNumber = getPitchNumber(pitch);
-  const moras = getMoras(reading);
-
-  if (pitchNumber === null || moras.length === 0) {
-    return <Reading>{reading}</Reading>;
-  }
-
-  const dropAfter =
-    pitchNumber > 0 && pitchNumber <= moras.length ? pitchNumber - 1 : null;
-
-  return (
-    <Reading as="span" aria-label={`${reading}，音调型 ${pitchNumber}`}>
-      {moras.map((mora, index) => (
-        <Mora
-          key={`${mora}-${index}`}
-          $isHigh={getMoraTone(index, pitchNumber) === "high"}
-          $hasDrop={dropAfter === index}
-        >
-          {mora}
-        </Mora>
-      ))}
-    </Reading>
-  );
-}
-
 function PhraseDialog({
   phrase,
   showKana,
   showStars = false,
   textIndent = "2rem",
+  canEdit = false,
+  onChanged,
 }) {
   const [isOpen, setIsOpen] = React.useState(false);
   const [examples, setExamples] = React.useState([]);
   const [status, setStatus] = React.useState("free");
+  const [editingField, setEditingField] = React.useState(null);
+  const [draftReading, setDraftReading] = React.useState("");
+  const [draftPitch, setDraftPitch] = React.useState("");
+  const [showReviewNotice, setShowReviewNotice] = React.useState(false);
+  const [draftPhrase, setDraftPhrase] = React.useState(phrase);
   const completedSentenceCount = getCompletedSentenceCount(
-    phrase.practiceCorrectCounts
+    draftPhrase.practiceCorrectCounts
   );
+
+  React.useEffect(() => {
+    setDraftPhrase(phrase);
+  }, [phrase]);
 
   React.useEffect(() => {
     if (!isOpen) return;
     setStatus("busy");
 
     const base = `https://baedcqmxejvjzyvynqrp.supabase.co/functions/v1/tatoeba-proxy`;
-    const encodedQuery = encodeURIComponent(phrase.word);
+    const encodedQuery = encodeURIComponent(draftPhrase.word);
 
     Promise.all([
       fetch(`${base}?query=${encodedQuery}&trans_to=cmn`).then((r) => r.json()),
@@ -116,7 +68,7 @@ function PhraseDialog({
       .then(([cmnData, allData]) => {
         const cmnResults = (cmnData.results ?? [])
           .filter((item) => item.text.length <= 80)
-          .filter((item) => item.text.includes(phrase.word))
+          .filter((item) => item.text.includes(draftPhrase.word))
           .map((item) => {
             const trans = item.translations
               .flat()
@@ -131,7 +83,7 @@ function PhraseDialog({
 
         const restResults = (allData.results ?? [])
           .filter((item) => item.text.length <= 80)
-          .filter((item) => item.text.includes(phrase.word))
+          .filter((item) => item.text.includes(draftPhrase.word))
           .filter((item) => !seenSentences.has(item.text))
           .map((item) => {
             const engTrans = item.translations
@@ -147,7 +99,101 @@ function PhraseDialog({
         setStatus("free");
       })
       .catch(() => setStatus("free"));
-  }, [isOpen]);
+  }, [draftPhrase.word, isOpen]);
+
+  function requestEdit(field) {
+    if (!canEdit) {
+      setShowReviewNotice(true);
+      return;
+    }
+
+    setEditingField(field);
+    setDraftReading(draftPhrase.reading ?? "");
+    setDraftPitch(
+      draftPhrase.pitch === null || draftPhrase.pitch === undefined
+        ? ""
+        : String(draftPhrase.pitch)
+    );
+  }
+
+  function getPitchOptions(reading) {
+    const moraCount = getMoras(reading).length;
+    return Array.from({ length: moraCount + 1 }, (_, index) => index);
+  }
+
+  async function savePhraseChanges(changes) {
+    const nextPhrase = { ...draftPhrase, ...changes };
+    const { data, error } = await supabase.rpc("update_vocabulary_item", {
+      p_vocabulary_id: draftPhrase.id,
+      p_word: nextPhrase.word,
+      p_reading: nextPhrase.reading,
+      p_pitch:
+        nextPhrase.pitch === null || nextPhrase.pitch === ""
+          ? null
+          : Number(nextPhrase.pitch),
+      p_meaning: nextPhrase.meaning,
+      p_contributor_name: nextPhrase.contributor_name,
+    });
+
+    if (error || data !== "ok") {
+      console.error(error?.message ?? data);
+      setEditingField(null);
+      return;
+    }
+
+    setDraftPhrase(nextPhrase);
+    setEditingField(null);
+    onChanged?.();
+  }
+
+  function handleTextKeyDown(event) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      event.currentTarget.blur();
+    }
+
+    if (event.key === "Escape") {
+      setEditingField(null);
+    }
+  }
+
+  function requestInlineEdit() {
+    if (!canEdit) {
+      setShowReviewNotice(true);
+      return false;
+    }
+
+    return true;
+  }
+
+  function saveReadingField() {
+    const nextReading = draftReading.trim();
+    const nextPitch = draftPitch === "" ? null : Number(draftPitch);
+
+    if (
+      nextReading === (draftPhrase.reading ?? "") &&
+      nextPitch === (draftPhrase.pitch ?? null)
+    ) {
+      setEditingField(null);
+      return;
+    }
+
+    savePhraseChanges({ reading: nextReading, pitch: nextPitch });
+  }
+
+  async function handleDeletePhrase() {
+    const { data, error } = await supabase.rpc("delete_vocabulary_item", {
+      p_vocabulary_id: draftPhrase.id,
+    });
+
+    if (error || data !== "ok") {
+      console.error(error?.message ?? data);
+      return;
+    }
+
+    setIsOpen(false);
+    onChanged?.();
+  }
 
   return (
     <Dialog.Root
@@ -157,9 +203,9 @@ function PhraseDialog({
       }}
     >
       <Dialog.Trigger asChild>
-        <PhraseItem key={phrase.id}>
+        <PhraseItem key={draftPhrase.id}>
           <PhraseText $textIndent={textIndent}>
-            {getPhraseText(phrase, showKana)}
+            {getPhraseText(draftPhrase, showKana)}
           </PhraseText>
           {showStars && (
             <AwardWrapper aria-label="sentence completion stars">
@@ -183,20 +229,96 @@ function PhraseDialog({
       <Dialog.Portal>
         <Overlay />
         <Content>
+          <TitleActions>
+            {canEdit ? (
+              <AlertDialog
+                title="删除词条"
+                description={`确定要删除「${draftPhrase.word}」吗？这个操作不能撤销。`}
+                confirmText="确认删除"
+                onConfirm={handleDeletePhrase}
+                trigger={
+                  <DeleteIconButton type="button" aria-label="删除词条">
+                    <IconWrapper id="remove" size="1.3rem" />
+                  </DeleteIconButton>
+                }
+              />
+            ) : (
+              <DeleteIconButton
+                type="button"
+                aria-label="申请删除词条"
+                onClick={() => setShowReviewNotice(true)}
+              >
+                <IconWrapper id="remove" size="1.3rem" />
+              </DeleteIconButton>
+            )}
+          </TitleActions>
           <Close asChild>
             <XWrapper>
               <IconWrapper id="close" size="1.3rem" />
             </XWrapper>
           </Close>
           <Title>
-            <Word>{phrase.word}</Word>
-            <PitchReading reading={phrase.reading} pitch={phrase.pitch} />
+            <EditableWord
+              value={draftPhrase.word}
+              onBeforeEdit={requestInlineEdit}
+              onSave={(nextValue) => savePhraseChanges({ word: nextValue })}
+            />
+            {editingField === "reading" ? (
+              <ReadingEditGroup
+                onBlur={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget)) {
+                    saveReadingField();
+                  }
+                }}
+              >
+                <ReadingEditInput
+                  autoFocus
+                  value={draftReading}
+                  onChange={(event) => {
+                    const nextReading = event.target.value;
+                    setDraftReading(nextReading);
+                    const maxPitch = getMoras(nextReading).length;
+                    if (draftPitch !== "" && Number(draftPitch) > maxPitch) {
+                      setDraftPitch(String(maxPitch));
+                    }
+                  }}
+                  onKeyDown={handleTextKeyDown}
+                />
+                <PitchSelect
+                  value={draftPitch}
+                  onChange={(event) => setDraftPitch(event.target.value)}
+                >
+                  <option value="">-</option>
+                  {getPitchOptions(draftReading).map((pitch) => (
+                    <option key={pitch} value={pitch}>
+                      {pitch}
+                    </option>
+                  ))}
+                </PitchSelect>
+              </ReadingEditGroup>
+            ) : (
+              <ReadingButton
+                type="button"
+                onClick={() => requestEdit("reading")}
+              >
+                <DialogPitchReading
+                  reading={draftPhrase.reading}
+                  pitch={draftPhrase.pitch}
+                />
+              </ReadingButton>
+            )}
           </Title>
 
           <LineBoxWrapper>
             <LineBox>
               <IconWrapper id="Languages" size={20} color="black" />
-              <Info>{phrase.meaning}</Info>
+              <EditableInfo
+                value={draftPhrase.meaning}
+                onBeforeEdit={requestInlineEdit}
+                onSave={(nextValue) =>
+                  savePhraseChanges({ meaning: nextValue })
+                }
+              />
             </LineBox>
             <LineBox>
               <IconWrapper id="message" size={20} color="black" />
@@ -222,15 +344,38 @@ function PhraseDialog({
           <LastLineWrapper>
             <LineBox>
               <IconWrapper id="user" size={20} color="black" />
-              <Info>{phrase.contributor_name}</Info>
+              <EditableInfo
+                value={draftPhrase.contributor_name}
+                onBeforeEdit={requestInlineEdit}
+                onSave={(nextValue) =>
+                  savePhraseChanges({ contributor_name: nextValue })
+                }
+              />
             </LineBox>
-            <LineBox>
-              <IconWrapper id="clock" size={20} color="black" />
-              <Info style={{ fontFamily: FONT_FAMILY.english_primary }}>
-                {formatToChinaTime(phrase.created_at)}
-              </Info>
-            </LineBox>
+            <RightMeta>
+              <LineBox>
+                <IconWrapper id="clock" size={20} color="black" />
+                <Info style={{ fontFamily: FONT_FAMILY.english_primary }}>
+                  {formatToChinaTime(draftPhrase.created_at)}
+                </Info>
+              </LineBox>
+            </RightMeta>
           </LastLineWrapper>
+          {showReviewNotice && (
+            <FormModal
+              open
+              onOpenChange={(open) => {
+                if (!open) {
+                  setShowReviewNotice(false);
+                }
+              }}
+              title="需要审核"
+            >
+              <ReviewNotice>
+                普通用户提交修改需要审核。审核机制还没有开放，请先联系词汇集管理员。
+              </ReviewNotice>
+            </FormModal>
+          )}
         </Content>
       </Dialog.Portal>
     </Dialog.Root>
@@ -304,6 +449,25 @@ const Close = styled(Dialog.Close)`
 const XWrapper = styled(UnstyledButton)`
   color: var(--gray15);
 `;
+const TitleActions = styled.div`
+  position: absolute;
+  top: 0.2rem;
+  right: 3rem;
+  padding: 0.8rem;
+
+  @media ${QUERIES.tabletAndUp} {
+    top: 0.3rem;
+    right: 3.15rem;
+  }
+`;
+const DeleteIconButton = styled(UnstyledButton)`
+  color: var(--gray15);
+
+  &:focus-visible {
+    outline: 2px solid var(--gray15);
+    outline-offset: 2px;
+  }
+`;
 const Title = styled(Dialog.Title)`
   display: flex;
   width: 90%;
@@ -318,35 +482,32 @@ const Text = styled.p`
 const Word = styled(Text)`
   font-size: 1.1rem;
 `;
-const Reading = styled(Text)`
+const EditableWord = styled(EditableText)`
+  color: var(--gray15);
+  font-family: ${FONT_FAMILY.japanese_primary};
+  font-size: 1.1rem;
+`;
+const DialogPitchReading = styled(PitchReading)`
   color: var(--gray40);
   font-size: 1.1rem;
 `;
-const Mora = styled.span`
-  position: relative;
-  display: inline-block;
-  padding-top: 0.28em;
-  line-height: 1.15;
-
-  &::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    right: ${({ $hasDrop }) => ($hasDrop ? "0" : "-1px")};
-    top: 0.2rem;
-    border-top: ${({ $isHigh }) =>
-      $isHigh ? "0.1rem solid var(--gray40)" : "0"};
-  }
-
-  &::after {
-    content: "";
-    position: absolute;
-    display: ${({ $hasDrop }) => ($hasDrop ? "block" : "none")};
-    right: -1px;
-    top: 0.2rem;
-    height: 0.5rem;
-    border-right: 0.1rem solid var(--gray40);
-  }
+const ReadingButton = styled(UnstyledButton)`
+  color: var(--gray40);
+`;
+const ReadingEditGroup = styled.div`
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+`;
+const ReadingEditInput = styled(EditableTextInput)`
+  color: var(--gray40);
+  font-family: ${FONT_FAMILY.japanese_primary};
+  font-size: 1.1rem;
+`;
+const PitchSelect = styled.select`
+  color: var(--gray15);
+  font-family: ${FONT_FAMILY.chinese_primary};
+  font-size: ${FONT_SIZE.small};
 `;
 const LineBoxWrapper = styled.div`
   display: flex;
@@ -370,6 +531,23 @@ const IconWrapper = styled(Icon)`
 const Info = styled.p`
   font-family: ${FONT_FAMILY.japanese_primary}, ${FONT_FAMILY.chinese_primary};
   font-size: 0.9rem;
+`;
+const EditableInfo = styled(EditableText)`
+  color: var(--gray15);
+  font-family: ${FONT_FAMILY.japanese_primary}, ${FONT_FAMILY.chinese_primary};
+  font-size: 0.9rem;
+`;
+const RightMeta = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+`;
+const ReviewNotice = styled.p`
+  color: var(--gray15);
+  font-family: ${FONT_FAMILY.chinese_primary};
+  font-size: ${FONT_SIZE.default};
+  line-height: 1.6;
 `;
 const ExampleWrapper = styled.div`
   display: flex;

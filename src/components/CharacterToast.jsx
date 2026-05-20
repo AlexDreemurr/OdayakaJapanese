@@ -170,10 +170,11 @@ const Wrapper = styled.div`
 
 const Overlay = styled.div`
   position: ${(p) => p.$position};
-  top: 0;
+  top: ${(p) => (p.$position === "fixed" ? "var(--header-height)" : "0")};
   left: 0;
   right: 0;
   pointer-events: none;
+  z-index: 20;
 `;
 
 export default CharacterToast;

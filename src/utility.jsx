@@ -1,7 +1,12 @@
 import React from "react";
 import styled from "styled-components";
-import { getStoredSharedDictSetIds } from "./sharedDictSettings";
+import {
+  getStoredSharedDictSetIds,
+  storeSharedDictSetIds,
+} from "./sharedDictSettings";
 import supabase from "./supabaseClient";
+
+const DEFAULT_PHRASE_SET_ID = 1;
 
 export function getSentenceText(sentence) {
   return typeof sentence === "string" ? sentence : sentence?.text ?? "";
@@ -112,10 +117,10 @@ function getChoiceLabel({ word, reading }, katakanaRate) {
 
 export async function fetchSharedDictQuiz(supabase, katakanaRate = 0) {
   // 访问supabase共享数据库并生成一道随机题目
-  const phraseSetIds = getStoredSharedDictSetIds();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  const phraseSetIds = await getSafeSharedDictSetIds(supabase, user);
   const vocab = user
     ? await getPracticeVocab(supabase, user.id, phraseSetIds)
     : await getRandomVocab(supabase, phraseSetIds);
@@ -157,9 +162,53 @@ export async function fetchSharedDictQuiz(supabase, katakanaRate = 0) {
     meaning: vocab.meaning,
     reading: targetReading,
     vocabularyReading: vocab.reading,
+    vocabularyPitch: vocab.pitch,
     vocabularyId: vocab.id,
     sentenceIndex,
   };
+}
+
+async function getSafeSharedDictSetIds(supabase, user) {
+  const storedIds = getStoredSharedDictSetIds();
+
+  if (!user) {
+    return storedIds ?? [DEFAULT_PHRASE_SET_ID];
+  }
+
+  const { data: memberships, error: membershipError } = await supabase
+    .from("set_members")
+    .select("set_id")
+    .eq("user_id", user.id);
+
+  if (membershipError) {
+    console.error(membershipError.message);
+    return storedIds;
+  }
+
+  const memberSetIds = memberships.map((membership) => membership.set_id);
+  const candidateSetIds =
+    storedIds === null
+      ? Array.from(new Set([DEFAULT_PHRASE_SET_ID, ...memberSetIds]))
+      : storedIds.filter((id) => memberSetIds.includes(id));
+
+  if (candidateSetIds.length > 0) {
+    storeSharedDictSetIds(candidateSetIds);
+    return candidateSetIds;
+  }
+
+  if (memberSetIds.length > 0) {
+    const fallbackSetIds = [memberSetIds[0]];
+    storeSharedDictSetIds(fallbackSetIds);
+    return fallbackSetIds;
+  }
+
+  if (storedIds === null) {
+    const fallbackSetIds = [DEFAULT_PHRASE_SET_ID];
+    storeSharedDictSetIds(fallbackSetIds);
+    return fallbackSetIds;
+  }
+
+  return [];
 }
 
 export async function updateVocabPractice(supabase, quizObject, isCorrect) {
@@ -235,7 +284,11 @@ export async function deepseekAPI(text, prompt, type = "translate") {
 }
 
 function applyPhraseSetFilter(query, phraseSetIds) {
-  if (Array.isArray(phraseSetIds) && phraseSetIds.length > 0) {
+  if (Array.isArray(phraseSetIds)) {
+    if (phraseSetIds.length === 0) {
+      return query.eq("set_id", -1);
+    }
+
     return query.in("set_id", phraseSetIds);
   }
 
@@ -248,6 +301,9 @@ export async function getRandomVocab(supabase, phraseSetIds = null) {
     supabase.from("vocabulary").select("*", { count: "exact", head: true }),
     phraseSetIds
   );
+  if (!count) {
+    return null;
+  }
   // 随机偏移
   const randomOffset = Math.floor(Math.random() * count);
   // 取那一条
@@ -335,6 +391,9 @@ export async function getRandomWords(
     supabase.from("vocabulary").select("*", { count: "exact", head: true }),
     phraseSetIds
   );
+  if (!total) {
+    return [];
+  }
 
   const results = [];
   const usedWords = new Set();
