@@ -2,13 +2,13 @@ import React from "react";
 import styled from "styled-components";
 import { HashLoader } from "react-spinners";
 import { useParams } from "react-router-dom";
-import PhraseSet from "../PhraseSet";
-import PhraseSetList from "../PhraseSetList";
-import { JoinPhraseSetDialog } from "../PhraseSetActions";
-import Icon from "../Icon";
-import IconInput from "../IconInput";
-import Message from "../Message";
-import UnstyledButton from "../UnstyledButton";
+import PhraseSet from "../PhraseSet/PhraseSet";
+import PhraseSetList from "../PhraseSetList/PhraseSetList";
+import { JoinPhraseSetDialog } from "../PhraseSetActions/PhraseSetActions";
+import Icon from "../Icon/Icon";
+import IconInput from "../IconInput/IconInput";
+import Message from "../Message/Message";
+import UnstyledButton from "../UnstyledButton/UnstyledButton";
 import usePhraseSets from "../../hooks/usePhraseSets";
 
 function PhraseSetPage() {

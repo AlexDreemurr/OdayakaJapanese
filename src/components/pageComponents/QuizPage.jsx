@@ -3,15 +3,15 @@ import {
   fetchSharedDictQuiz,
   updateVocabPractice,
 } from "../../utility";
-import SingleSelect from "../SingleSelect";
-import QuizAnswer from "../QuizAnswer";
+import SingleSelect from "../SingleSelect/SingleSelect";
+import QuizAnswer from "../QuizAnswer/QuizAnswer";
 import Papa from "papaparse";
 import React from "react";
 import styled from "styled-components";
 import supabase from "../../supabaseClient";
 import { HashLoader } from "react-spinners";
 import { KatakanaRateContext } from "../../KatakanaRateContext";
-import Message from "../Message";
+import Message from "../Message/Message";
 
 function QuizPage({
   source,

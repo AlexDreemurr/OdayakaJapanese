@@ -10,11 +10,11 @@ import PhraseSetPage from "./components/pageComponents/PhraseSetPage";
 import SettingsPage from "./components/pageComponents/SettingsPage";
 
 /* Components */
-import Header from "./components/Header";
-import { CharacterToastOverlay } from "./components/CharacterToast";
+import Header from "./components/Header/Header";
+import { CharacterToastOverlay } from "./components/CharacterToast/CharacterToast";
 import styled from "styled-components";
 import { KatakanaRateContext } from "./KatakanaRateContext";
-import { TOAST_DELAY } from "./constants";
+import { TOAST_DELAY } from "./constants/index";
 
 const CORRECT_TOAST_MILESTONES = [50, 20, 10, 5, 3];
 

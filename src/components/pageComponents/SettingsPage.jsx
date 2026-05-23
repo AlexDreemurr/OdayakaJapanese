@@ -2,27 +2,27 @@ import React from "react";
 import styled from "styled-components";
 import { HashLoader } from "react-spinners";
 import usePhraseSets from "../../hooks/usePhraseSets";
-import Message from "../Message";
-import PhraseSetCard from "../PhraseSetCard";
+import Message from "../Message/Message";
+import PhraseSetCard from "../PhraseSetCard/PhraseSetCard";
 import {
   getStoredSharedDictSetIds,
   storeSharedDictSetIds,
 } from "../../sharedDictSettings";
 import { FONT_SIZE, QUERIES } from "../../constants";
-import ProgressBar from "../ProgressBar";
+import ProgressBar from "../ProgressBar/ProgressBar";
 import { KatakanaRateContext } from "../../KatakanaRateContext";
 import { useAuth } from "../../hooks/useAuth";
-import UserProfileCard from "../UserProfileCard";
-import Button from "../Button";
-import PhraseSetList from "../PhraseSetList";
+import UserProfileCard from "../UserProfileCard/UserProfileCard";
+import Button from "../Button/Button";
+import PhraseSetList from "../PhraseSetList/PhraseSetList";
 import {
   AddPhraseSetDialog,
   DeletePhraseSetDialog,
   EditPhraseSetDialog,
-} from "../PhraseSetActions";
-import PhraseSetMembersPanel from "../PhraseSetMembersPanel";
-import Icon from "../Icon";
-import UnstyledButton from "../UnstyledButton";
+} from "../PhraseSetActions/PhraseSetActions";
+import PhraseSetMembersPanel from "../PhraseSetMembersPanel/PhraseSetMembersPanel";
+import Icon from "../Icon/Icon";
+import UnstyledButton from "../UnstyledButton/UnstyledButton";
 
 function SettingsPage({ resetAnswerToast }) {
   const {

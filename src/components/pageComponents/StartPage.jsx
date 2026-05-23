@@ -1,7 +1,7 @@
 import React from "react";
 import styled from "styled-components";
-import LinkWrapper from "../LinkWrapper";
-import Button from "../Button";
+import LinkWrapper from "../LinkWrapper/LinkWrapper";
+import Button from "../Button/Button";
 
 function StartPage() {
   return (

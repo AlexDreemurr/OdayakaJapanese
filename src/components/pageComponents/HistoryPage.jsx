@@ -1,4 +1,4 @@
-import HistoryQuizes from "../HistoryQuizes";
+import HistoryQuizes from "../HistoryQuizes/HistoryQuizes";
 import styled from "styled-components";
 import React from "react";
 

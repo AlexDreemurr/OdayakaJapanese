@@ -1,5 +1,9 @@
 # React + Vite
 
+## VOICEVOX TTS
+
+句子朗读功能的本地启动、公网化和 Cloudflare Tunnel 配置见 [VOICEVOX_PROGRESS.md](./VOICEVOX_PROGRESS.md)。
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:
