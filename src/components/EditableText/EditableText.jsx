@@ -5,7 +5,7 @@ import UnstyledButton from "../UnstyledButton/UnstyledButton";
 export function EditableTextInput({
   value,
   className,
-  extraWidth = 12,
+  extraWidth = 0,
   measureText = value,
   style,
   ...delegated
@@ -43,7 +43,11 @@ function EditableText({
   className,
   inputClassName,
   buttonClassName,
+  inputStyle,
+  editAccessory,
   onBeforeEdit,
+  onDraftChange,
+  shouldSave,
   onSave,
   onCancel,
 }) {
@@ -69,6 +73,11 @@ function EditableText({
     setIsEditing(true);
   }
 
+  function updateDraftValue(nextValue) {
+    setDraftValue(nextValue);
+    onDraftChange?.(nextValue);
+  }
+
   async function saveDraft() {
     if (disabled) {
       setIsEditing(false);
@@ -76,7 +85,7 @@ function EditableText({
     }
 
     const nextValue = draftValue.trim();
-    if (nextValue !== (value ?? "")) {
+    if (nextValue !== (value ?? "") || shouldSave?.(nextValue)) {
       await onSave?.(nextValue);
     }
 
@@ -101,35 +110,64 @@ function EditableText({
   }
 
   if (isEditing) {
-    return (
+    const accessory =
+      typeof editAccessory === "function"
+        ? editAccessory({ draftValue, setDraftValue: updateDraftValue })
+        : editAccessory;
+
+    const input = (
       <EditableTextInput
         autoFocus
         value={draftValue}
-        className={inputClassName ?? className}
+        className={inputClassName}
+        style={inputStyle}
         placeholder={placeholder}
         disabled={disabled}
-        onBlur={saveDraft}
-        onChange={(event) => setDraftValue(event.target.value)}
+        onBlur={accessory ? undefined : saveDraft}
+        onChange={(event) => updateDraftValue(event.target.value)}
         onKeyDown={handleKeyDown}
       />
     );
+
+    if (accessory) {
+      return (
+        <EditableRoot className={className}>
+          <EditGroup
+            onBlur={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget)) {
+                saveDraft();
+              }
+            }}
+          >
+            {input}
+            {accessory}
+          </EditGroup>
+        </EditableRoot>
+      );
+    }
+
+    return <EditableRoot className={className}>{input}</EditableRoot>;
   }
 
   return (
-    <TextButton
-      type="button"
-      className={buttonClassName ?? className}
-      disabled={disabled}
-      onClick={startEditing}
-    >
-      {displayValue || placeholder}
-    </TextButton>
+    <EditableRoot className={className}>
+      <TextButton
+        type="button"
+        className={buttonClassName}
+        disabled={disabled}
+        onClick={startEditing}
+      >
+        {displayValue || placeholder}
+      </TextButton>
+    </EditableRoot>
   );
 }
 
 const Input = styled.input`
   --edit-underline-color: var(--gray40);
 
+  display: inline-block;
+  vertical-align: baseline;
   min-width: 0;
   max-width: min(14rem, 100%);
   border: 0;
@@ -162,9 +200,29 @@ const Measure = styled.span`
   font-weight: inherit;
 `;
 
-const TextButton = styled(UnstyledButton)`
+const EditableRoot = styled.span`
+  display: inline-block;
   color: inherit;
   font: inherit;
+  line-height: inherit;
+  vertical-align: baseline;
+`;
+
+const EditGroup = styled.span`
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  font: inherit;
+  line-height: inherit;
+  vertical-align: baseline;
+`;
+
+const TextButton = styled(UnstyledButton)`
+  display: inline-block;
+  vertical-align: baseline;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
   overflow-wrap: anywhere;
 
   &:disabled {

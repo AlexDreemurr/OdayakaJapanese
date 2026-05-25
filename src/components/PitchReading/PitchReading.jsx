@@ -78,6 +78,7 @@ const Mora = styled.span`
   display: inline-block;
   padding-top: 0.28em;
   line-height: 1.15;
+  font-size: inherit;
 
   &::before {
     content: "";
@@ -86,7 +87,7 @@ const Mora = styled.span`
     right: ${({ $hasDrop }) => ($hasDrop ? "0" : "-1px")};
     top: 0.25rem;
     border-top: ${({ $isHigh }) =>
-      $isHigh ? "0.05rem solid currentColor" : "0"};
+      $isHigh ? "0.08rem solid currentColor" : "0"};
   }
 
   &::after {
@@ -96,7 +97,7 @@ const Mora = styled.span`
     right: calc(-1px + 0.03em);
     top: 0.25rem;
     height: 0.5rem;
-    border-right: 0.05rem solid currentColor;
+    border-right: 0.08rem solid currentColor;
   }
 `;
 

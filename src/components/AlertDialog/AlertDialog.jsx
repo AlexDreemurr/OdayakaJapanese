@@ -4,6 +4,8 @@ import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog";
 import { FONT_FAMILY, FONT_SIZE } from "../../constants/index";
 
 function AlertDialog({
+  open,
+  onOpenChange,
   trigger,
   title,
   description,
@@ -13,7 +15,7 @@ function AlertDialog({
   confirmDisabled = false,
 }) {
   return (
-    <AlertDialogPrimitive.Root>
+    <AlertDialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       {trigger && (
         <AlertDialogPrimitive.Trigger asChild>
           {trigger}

@@ -1,9 +1,8 @@
 import React from "react";
 import styled from "styled-components";
-import { FONT_FAMILY, FONT_SIZE } from "../../constants";
+import { FONT_FAMILY, FONT_SIZE, QUERIES } from "../../constants";
 import * as Dialog from "@radix-ui/react-dialog";
 import { getPhraseText } from "../PhraseSet/PhraseSet";
-import { QUERIES } from "../../constants";
 import UnstyledButton from "../UnstyledButton/UnstyledButton";
 import Icon from "../Icon/Icon";
 import { Star } from "lucide-react";
@@ -13,7 +12,9 @@ import PitchReading, { getMoras } from "../PitchReading/PitchReading";
 import supabase from "../../supabaseClient";
 import AlertDialog from "../AlertDialog/AlertDialog";
 import { FormModal } from "../FormModal/FormModal";
-import EditableText, { EditableTextInput } from "../EditableText/EditableText";
+import EditableText from "../EditableText/EditableText";
+import SentenceBox from "../SentenceBox/SentenceBox";
+import IconActionDropdown from "../IconActionDropdown/IconActionDropdown";
 
 function getCorrectCounts(correctCounts) {
   if (!Array.isArray(correctCounts)) {
@@ -41,10 +42,10 @@ function PhraseDialog({
   const [isOpen, setIsOpen] = React.useState(false);
   const [examples, setExamples] = React.useState([]);
   const [status, setStatus] = React.useState("free");
-  const [editingField, setEditingField] = React.useState(null);
-  const [draftReading, setDraftReading] = React.useState("");
   const [draftPitch, setDraftPitch] = React.useState("");
   const [showReviewNotice, setShowReviewNotice] = React.useState(false);
+  const [contentView, setContentView] = React.useState("details");
+  const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
   const [draftPhrase, setDraftPhrase] = React.useState(phrase);
   const completedSentenceCount = getCompletedSentenceCount(
     draftPhrase.practiceCorrectCounts
@@ -101,21 +102,6 @@ function PhraseDialog({
       .catch(() => setStatus("free"));
   }, [draftPhrase.word, isOpen]);
 
-  function requestEdit(field) {
-    if (!canEdit) {
-      setShowReviewNotice(true);
-      return;
-    }
-
-    setEditingField(field);
-    setDraftReading(draftPhrase.reading ?? "");
-    setDraftPitch(
-      draftPhrase.pitch === null || draftPhrase.pitch === undefined
-        ? ""
-        : String(draftPhrase.pitch)
-    );
-  }
-
   function getPitchOptions(reading) {
     const moraCount = getMoras(reading).length;
     return Array.from({ length: moraCount + 1 }, (_, index) => index);
@@ -137,24 +123,11 @@ function PhraseDialog({
 
     if (error || data !== "ok") {
       console.error(error?.message ?? data);
-      setEditingField(null);
       return;
     }
 
     setDraftPhrase(nextPhrase);
-    setEditingField(null);
     onChanged?.();
-  }
-
-  function handleTextKeyDown(event) {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      event.currentTarget.blur();
-    }
-
-    if (event.key === "Escape") {
-      setEditingField(null);
-    }
   }
 
   function requestInlineEdit() {
@@ -166,15 +139,44 @@ function PhraseDialog({
     return true;
   }
 
-  function saveReadingField() {
-    const nextReading = draftReading.trim();
+  function requestReadingEdit() {
+    if (!requestInlineEdit()) {
+      return false;
+    }
+
+    setDraftPitch(
+      draftPhrase.pitch === null || draftPhrase.pitch === undefined
+        ? ""
+        : String(draftPhrase.pitch)
+    );
+    return true;
+  }
+
+  function handleReadingDraftChange(nextReading) {
+    const maxPitch = getMoras(nextReading).length;
+    if (draftPitch !== "" && Number(draftPitch) > maxPitch) {
+      setDraftPitch(String(maxPitch));
+    }
+  }
+
+  function hasReadingFieldChanges(nextValue) {
+    const nextReading = nextValue.trim();
+    const nextPitch = draftPitch === "" ? null : Number(draftPitch);
+
+    return (
+      nextReading !== (draftPhrase.reading ?? "") ||
+      nextPitch !== (draftPhrase.pitch ?? null)
+    );
+  }
+
+  function saveReadingField(nextValue) {
+    const nextReading = nextValue.trim();
     const nextPitch = draftPitch === "" ? null : Number(draftPitch);
 
     if (
       nextReading === (draftPhrase.reading ?? "") &&
       nextPitch === (draftPhrase.pitch ?? null)
     ) {
-      setEditingField(null);
       return;
     }
 
@@ -194,6 +196,34 @@ function PhraseDialog({
     setIsOpen(false);
     onChanged?.();
   }
+
+  function requestDeletePhrase() {
+    if (!canEdit) {
+      setShowReviewNotice(true);
+      return;
+    }
+
+    setShowDeleteConfirm(true);
+  }
+
+  function toggleHistoryView() {
+    setContentView((currentView) =>
+      currentView === "history" ? "details" : "history"
+    );
+  }
+
+  const actionItems = [
+    {
+      icon: "bookOpen",
+      label: contentView === "history" ? "查看详情" : "查看做题历史",
+      onSelect: toggleHistoryView,
+    },
+    {
+      icon: "remove",
+      label: canEdit ? "删除词条" : "申请删除词条",
+      onSelect: requestDeletePhrase,
+    },
+  ];
 
   return (
     <Dialog.Root
@@ -229,138 +259,176 @@ function PhraseDialog({
       <Dialog.Portal>
         <Overlay />
         <Content>
-          <TitleActions>
-            {canEdit ? (
-              <AlertDialog
-                title="删除词条"
-                description={`确定要删除「${draftPhrase.word}」吗？这个操作不能撤销。`}
-                confirmText="确认删除"
-                onConfirm={handleDeletePhrase}
-                trigger={
-                  <DeleteIconButton type="button" aria-label="删除词条">
-                    <IconWrapper id="remove" size="1.3rem" />
-                  </DeleteIconButton>
-                }
-              />
-            ) : (
-              <DeleteIconButton
-                type="button"
-                aria-label="申请删除词条"
-                onClick={() => setShowReviewNotice(true)}
-              >
-                <IconWrapper id="remove" size="1.3rem" />
-              </DeleteIconButton>
-            )}
-          </TitleActions>
-          <Close asChild>
-            <XWrapper>
-              <IconWrapper id="close" size="1.3rem" />
-            </XWrapper>
-          </Close>
-          <Title>
-            <EditableWord
-              value={draftPhrase.word}
-              onBeforeEdit={requestInlineEdit}
-              onSave={(nextValue) => savePhraseChanges({ word: nextValue })}
-            />
-            {editingField === "reading" ? (
-              <ReadingEditGroup
-                onBlur={(event) => {
-                  if (!event.currentTarget.contains(event.relatedTarget)) {
-                    saveReadingField();
-                  }
-                }}
-              >
-                <ReadingEditInput
-                  autoFocus
-                  value={draftReading}
-                  onChange={(event) => {
-                    const nextReading = event.target.value;
-                    setDraftReading(nextReading);
-                    const maxPitch = getMoras(nextReading).length;
-                    if (draftPitch !== "" && Number(draftPitch) > maxPitch) {
-                      setDraftPitch(String(maxPitch));
-                    }
-                  }}
-                  onKeyDown={handleTextKeyDown}
+          <TopArea>
+            <Actions>
+              <Close asChild>
+                <XWrapper>
+                  <IconWrapper id="close" size="1.3rem" />
+                </XWrapper>
+              </Close>
+              <TitleActions>
+                <DesktopTitleActions>
+                  <TitleIconButton
+                    type="button"
+                    aria-label="查看做题历史"
+                    onClick={toggleHistoryView}
+                  >
+                    <IconWrapper id="bookOpen" size="1.3rem" />
+                  </TitleIconButton>
+                  {canEdit ? (
+                    <AlertDialog
+                      title="删除词条"
+                      description={`确定要删除「${draftPhrase.word}」吗？这个操作不能撤销。`}
+                      confirmText="确认删除"
+                      onConfirm={handleDeletePhrase}
+                      trigger={
+                        <DeleteIconButton type="button" aria-label="删除词条">
+                          <IconWrapper id="remove" size="1.3rem" />
+                        </DeleteIconButton>
+                      }
+                    />
+                  ) : (
+                    <DeleteIconButton
+                      type="button"
+                      aria-label="申请删除词条"
+                      onClick={() => setShowReviewNotice(true)}
+                    >
+                      <IconWrapper id="remove" size="1.3rem" />
+                    </DeleteIconButton>
+                  )}
+                </DesktopTitleActions>
+                <MobileTitleActions>
+                  <MobileActionDropdown actions={actionItems} closeOnSelect />
+                </MobileTitleActions>
+                <AlertDialog
+                  open={showDeleteConfirm}
+                  onOpenChange={setShowDeleteConfirm}
+                  title="Delete phrase"
+                  description={`Delete "${draftPhrase.word}"? This cannot be undone.`}
+                  confirmText="Delete"
+                  onConfirm={handleDeletePhrase}
                 />
-                <PitchSelect
-                  value={draftPitch}
-                  onChange={(event) => setDraftPitch(event.target.value)}
-                >
-                  <option value="">-</option>
-                  {getPitchOptions(draftReading).map((pitch) => (
-                    <option key={pitch} value={pitch}>
-                      {pitch}
-                    </option>
-                  ))}
-                </PitchSelect>
-              </ReadingEditGroup>
-            ) : (
-              <ReadingButton
-                type="button"
-                onClick={() => requestEdit("reading")}
-              >
-                <DialogPitchReading
-                  reading={draftPhrase.reading}
-                  pitch={draftPhrase.pitch}
+                {/*
+                  title="鍒犻櫎璇嶆潯"
+                  description={`纭畾瑕佸垹闄ゃ€?{draftPhrase.word}銆嶅悧锛熻繖涓搷浣滀笉鑳芥挙閿€銆俙}
+                  confirmText="纭鍒犻櫎"
+                  onConfirm={handleDeletePhrase}
                 />
-              </ReadingButton>
-            )}
-          </Title>
-
-          <LineBoxWrapper>
-            <LineBox>
-              <IconWrapper id="Languages" size={20} color="black" />
-              <EditableInfo
-                value={draftPhrase.meaning}
+                */}
+              </TitleActions>
+            </Actions>
+            <Title>
+              <EditableWord
+                value={draftPhrase.word}
                 onBeforeEdit={requestInlineEdit}
-                onSave={(nextValue) =>
-                  savePhraseChanges({ meaning: nextValue })
-                }
+                onSave={(nextValue) => savePhraseChanges({ word: nextValue })}
               />
-            </LineBox>
-            <LineBox>
-              <IconWrapper id="message" size={20} color="black" />
-              {status === "busy" && (
-                <BarLoaderWrapper>
-                  <BarLoader />
-                </BarLoaderWrapper>
-              )}
-              {status === "free" && (
-                <ExampleWrapper>
-                  {examples.length === 0 && <Info>---</Info>}
-                  {examples.length !== 0 &&
-                    examples.map((example) => (
-                      <Example>
-                        <Info>{example.sentence}</Info>
-                        <Translation>{example.translation}</Translation>
-                      </Example>
+              <EditableReading
+                value={draftPhrase.reading}
+                displayValue={
+                  <DialogPitchReading
+                    reading={draftPhrase.reading}
+                    pitch={draftPhrase.pitch}
+                  />
+                }
+                onBeforeEdit={requestReadingEdit}
+                onDraftChange={handleReadingDraftChange}
+                shouldSave={hasReadingFieldChanges}
+                onSave={saveReadingField}
+                editAccessory={({ draftValue }) => (
+                  <PitchSelect
+                    value={draftPitch}
+                    onChange={(event) => setDraftPitch(event.target.value)}
+                  >
+                    <option value="">-</option>
+                    {getPitchOptions(draftValue).map((pitch) => (
+                      <option key={pitch} value={pitch}>
+                        {pitch}
+                      </option>
                     ))}
-                </ExampleWrapper>
-              )}
-            </LineBox>
-          </LineBoxWrapper>
-          <LastLineWrapper>
-            <LineBox>
-              <IconWrapper id="user" size={20} color="black" />
-              <EditableInfo
-                value={draftPhrase.contributor_name}
-                onBeforeEdit={requestInlineEdit}
-                onSave={(nextValue) =>
-                  savePhraseChanges({ contributor_name: nextValue })
-                }
+                  </PitchSelect>
+                )}
               />
-            </LineBox>
-            <RightMeta>
-              <LineBox>
-                <IconWrapper id="clock" size={20} color="black" />
-                <Info style={{ fontFamily: FONT_FAMILY.english_primary }}>
-                  {formatToChinaTime(draftPhrase.created_at)}
-                </Info>
-              </LineBox>
-            </RightMeta>
-          </LastLineWrapper>
+            </Title>
+          </TopArea>
+
+          <Body>
+            {contentView === "details" && (
+              <>
+                <LineBoxWrapper>
+                  <LineBox>
+                    <IconWrapper id="Languages" size={20} color="black" />
+                    <EditableInfo
+                      value={draftPhrase.meaning}
+                      onBeforeEdit={requestInlineEdit}
+                      onSave={(nextValue) =>
+                        savePhraseChanges({ meaning: nextValue })
+                      }
+                    />
+                  </LineBox>
+                  <LineBox>
+                    <IconWrapper id="message" size={20} color="black" />
+                    {status === "busy" && (
+                      <BarLoaderWrapper>
+                        <BarLoader />
+                      </BarLoaderWrapper>
+                    )}
+                    {status === "free" && (
+                      <ExampleWrapper>
+                        {examples.length === 0 && <Info>---</Info>}
+                        {examples.length !== 0 &&
+                          examples.map((example) => (
+                            <Example>
+                              <Info>{example.sentence}</Info>
+                              <Translation>{example.translation}</Translation>
+                            </Example>
+                          ))}
+                      </ExampleWrapper>
+                    )}
+                  </LineBox>
+                </LineBoxWrapper>
+                <LastLineWrapper>
+                  <LineBox>
+                    <IconWrapper id="user" size={20} color="black" />
+                    <EditableInfo
+                      value={draftPhrase.contributor_name}
+                      onBeforeEdit={requestInlineEdit}
+                      onSave={(nextValue) =>
+                        savePhraseChanges({ contributor_name: nextValue })
+                      }
+                    />
+                  </LineBox>
+                  <RightMeta>
+                    <LineBox>
+                      <IconWrapper id="clock" size={20} color="black" />
+                      <Info style={{ fontFamily: FONT_FAMILY.english_primary }}>
+                        {formatToChinaTime(draftPhrase.created_at)}
+                      </Info>
+                    </LineBox>
+                  </RightMeta>
+                </LastLineWrapper>
+              </>
+            )}
+            {contentView === "history" && (
+              <SentenceHistoryGrid>
+                {Array.from({ length: 4 }, (_, index) => {
+                  const isCompleted =
+                    Number(draftPhrase.practiceCorrectCounts?.[index]) > 0;
+                  const sentence = draftPhrase.sentences?.[index];
+
+                  return isCompleted && sentence ? (
+                    <HistorySentenceBox key={index}>
+                      {sentence}
+                    </HistorySentenceBox>
+                  ) : (
+                    <LockedSentenceSlot key={index}>
+                      <Icon id="private" size="1.4rem" color="var(--gray95)" />
+                    </LockedSentenceSlot>
+                  );
+                })}
+              </SentenceHistoryGrid>
+            )}
+          </Body>
           {showReviewNotice && (
             <FormModal
               open
@@ -435,79 +503,108 @@ const Content = styled(Dialog.Content)`
   padding: 1.1rem 1.5rem 1.1rem 1.5rem;
 `;
 const Close = styled(Dialog.Close)`
-  position: absolute;
-  top: 0.2rem;
-  right: 0.2rem;
-
   padding: 0.8rem;
-
-  @media ${QUERIES.tabletAndUp} {
-    top: 0.3rem;
-    right: 0.35rem;
-  }
+  position: relative;
+  top: -1rem;
+  right: -1rem;
 `;
 const XWrapper = styled(UnstyledButton)`
   color: var(--gray15);
 `;
+const Actions = styled.div`
+  display: flex;
+  flex-direction: row-reverse;
+  height: fit-content;
+`;
 const TitleActions = styled.div`
-  position: absolute;
-  top: 0.2rem;
-  right: 3rem;
-  padding: 0.8rem;
+  position: relative;
+  top: -1rem;
+  right: -1rem;
+`;
+const DesktopTitleActions = styled.div`
+  display: none;
 
   @media ${QUERIES.tabletAndUp} {
-    top: 0.3rem;
-    right: 3.15rem;
+    display: flex;
   }
 `;
-const DeleteIconButton = styled(UnstyledButton)`
-  color: var(--gray15);
+const MobileTitleActions = styled.div`
+  display: block;
 
+  @media ${QUERIES.tabletAndUp} {
+    display: none;
+  }
+`;
+const MobileActionDropdown = styled(IconActionDropdown)`
+  transform: translateY(4px);
+`;
+const TitleIconButton = styled(UnstyledButton)`
+  color: var(--gray15);
+  padding: 0.8rem;
   &:focus-visible {
     outline: 2px solid var(--gray15);
     outline-offset: 2px;
   }
 `;
+const DeleteIconButton = styled(TitleIconButton)``;
+const TopArea = styled.div`
+  display: flex;
+  justify-content: space-between;
+  flex-direction: row-reverse;
+  gap: 0.75rem;
+`;
 const Title = styled(Dialog.Title)`
   display: flex;
-  width: 90%;
+  /* width: 100%; */
   column-gap: 1rem;
+  row-gap: 0.15rem;
   flex-wrap: wrap;
-  margin-bottom: 1rem;
-`;
-const Text = styled.p`
-  font-size: 0.9rem;
-  font-family: ${FONT_FAMILY.japanese_primary};
-`;
-const Word = styled(Text)`
-  font-size: 1.1rem;
 `;
 const EditableWord = styled(EditableText)`
   color: var(--gray15);
   font-family: ${FONT_FAMILY.japanese_primary};
-  font-size: 1.1rem;
+  font-size: ${FONT_SIZE.default};
 `;
 const DialogPitchReading = styled(PitchReading)`
   color: var(--gray40);
-  font-size: 1.1rem;
+  font-size: ${FONT_SIZE.default};
 `;
-const ReadingButton = styled(UnstyledButton)`
+const EditableReading = styled(EditableWord)`
   color: var(--gray40);
-`;
-const ReadingEditGroup = styled.div`
-  display: inline-flex;
-  align-items: baseline;
-  gap: 0.35rem;
-`;
-const ReadingEditInput = styled(EditableTextInput)`
-  color: var(--gray40);
-  font-family: ${FONT_FAMILY.japanese_primary};
-  font-size: 1.1rem;
 `;
 const PitchSelect = styled.select`
   color: var(--gray15);
   font-family: ${FONT_FAMILY.chinese_primary};
   font-size: ${FONT_SIZE.small};
+`;
+const Body = styled.div`
+  margin-top: 0.35rem;
+`;
+const SentenceHistoryGrid = styled.div`
+  --speaker-overhang-room: 0.5rem;
+
+  display: grid;
+  gap: 0.5rem;
+  max-height: min(52vh, 24rem);
+  overflow: auto;
+  padding-right: 0.15rem;
+`;
+const HistorySentenceBox = styled(SentenceBox)`
+  width: calc(100% - var(--speaker-overhang-room));
+  box-sizing: border-box;
+  font-size: ${FONT_SIZE.default};
+  margin-bottom: 0;
+`;
+const LockedSentenceSlot = styled.div`
+  width: calc(100% - var(--speaker-overhang-room));
+  box-sizing: border-box;
+  min-height: 4.6rem;
+  display: grid;
+  place-items: center;
+  margin-bottom: 0;
+  border-radius: 1rem;
+  background-color: var(--gray15);
+  font-size: ${FONT_SIZE.default};
 `;
 const LineBoxWrapper = styled.div`
   display: flex;

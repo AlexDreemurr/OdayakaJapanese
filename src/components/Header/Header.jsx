@@ -8,12 +8,12 @@ export default function Header() {
   return (
     <Wrapper>
       <TitleDesktop to="/">
-        尹の日本語
-        <SpanDesktop>オンラインプラットフォーム</SpanDesktop>
+        おだやか日本語
+        <SpanDesktop>プラットフォーム</SpanDesktop>
       </TitleDesktop>
       <TitleMobile to="/">
-        尹の日本語
-        <SpanMobile>Platform</SpanMobile>
+        おだやか日本語
+        {/* <SpanMobile>Platform</SpanMobile> */}
       </TitleMobile>
 
       <Nav>
@@ -63,7 +63,7 @@ const TitleDesktop = styled(LinkWrapper)`
   text-decoration: none;
   letter-spacing: 0;
   line-height: 1;
-  font-family: ${FONT_FAMILY.japanese_secondary};
+  font-family: ${FONT_FAMILY.japanese_tertiary};
   margin: 0;
   margin-right: auto;
   min-width: 0;

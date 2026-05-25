@@ -224,11 +224,11 @@ const CardText = styled.p`
   pointer-events: ${(p) => (p.$showDescription ? "auto" : "none")};
   @media ${QUERIES.tabletAndUp} {
     font-size: ${(p) =>
-      p.$showDescription ? FONT_SIZE.tiny : FONT_SIZE.default};
+      p.$showDescription ? FONT_SIZE.tiny : FONT_SIZE.small};
   }
   @media ${QUERIES.laptopAndUp} {
     font-size: ${(p) =>
-      p.$showDescription ? FONT_SIZE.tiny : FONT_SIZE.default};
+      p.$showDescription ? FONT_SIZE.tiny : FONT_SIZE.small};
   }
 `;
 const DescriptionText = styled.span`

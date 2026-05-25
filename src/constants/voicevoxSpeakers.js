@@ -3,4 +3,4 @@ export const VOICEVOX_SPEAKERS = [
   { label: "四国めたん / ノーマル", speaker: 2 },
 ];
 
-export const DEFAULT_VOICEVOX_SPEAKER = VOICEVOX_SPEAKERS[0].speaker;
+export const DEFAULT_VOICEVOX_SPEAKER = VOICEVOX_SPEAKERS[1].speaker;

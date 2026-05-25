@@ -3,7 +3,7 @@ import styled from "styled-components";
 import { getSentenceText, getThreeParts } from "../../utility";
 import SentenceSpeaker from "../SentenceSpeaker/SentenceSpeaker";
 
-function SentenceBox({ children, type = "sentence" }) {
+function SentenceBox({ children, type = "sentence", className }) {
   /* 
     type: sentence | translate | loading
   */
@@ -29,7 +29,7 @@ function SentenceBox({ children, type = "sentence" }) {
 
   // 返回 JSX：括号位置用 <span> 替换
   return (
-    <Component>
+    <Component className={className}>
       {type !== "sentence" && children}
       {type === "sentence" && (
         <>
@@ -52,6 +52,7 @@ function SentenceBox({ children, type = "sentence" }) {
 }
 
 const SentenceText = styled.div`
+  font-size: inherit;
   text-indent: 2rem;
 `;
 
@@ -64,9 +65,11 @@ const Answer = styled.span`
   margin-right: 0.1rem;
   /* border: 1px black solid; */
   display: inline-block;
+  font-size: inherit;
   text-indent: 0;
 `;
 const SentenceWrapper = styled.div`
+  position: relative;
   background-color: var(--gray85);
   padding: 1rem 1.5rem;
   margin: 0;
@@ -75,6 +78,7 @@ const SentenceWrapper = styled.div`
   font-family: "BIZ UDMincho";
 `;
 const TranslateWrapper = styled(SentenceWrapper)`
+  text-indent: 2rem;
   background-color: var(--gray15);
   color: var(--gray85);
   font-family: "Noto Serif SC", serif;

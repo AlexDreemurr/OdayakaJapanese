@@ -1,4 +1,5 @@
 import styled from "styled-components";
+import { FONT_SIZE } from "../../constants";
 
 const STYLE = {
   default: {
@@ -47,7 +48,7 @@ const Wrapper = styled.button`
   width: 100%;
   max-width: 400px;
   margin: 0 auto;
-  font-size: 1rem;
+  font-size: ${FONT_SIZE.small};
   background-color: var(--backgroundColor);
   color: var(--color);
   border: none;

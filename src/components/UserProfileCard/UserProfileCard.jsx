@@ -2,7 +2,10 @@ import React from "react";
 import styled from "styled-components";
 import supabase from "../../supabaseClient";
 import { FONT_FAMILY, FONT_SIZE } from "../../constants";
-import { isMissingProfileTable, useUserProfile } from "../../hooks/useUserProfile";
+import {
+  isMissingProfileTable,
+  useUserProfile,
+} from "../../hooks/useUserProfile";
 import AuthModal from "../AuthModal/AuthModal";
 import Button from "../Button/Button";
 import EditableText from "../EditableText/EditableText";
@@ -19,12 +22,8 @@ function getMetadataDisplayName(user) {
 
 function UserProfileCard({ user, isLoggedIn, signOut, extraAction }) {
   const [displayUser, setDisplayUser] = React.useState(user);
-  const {
-    avatarPath,
-    displayName,
-    setAvatarPath,
-    setDisplayName,
-  } = useUserProfile(user);
+  const { avatarPath, displayName, setAvatarPath, setDisplayName } =
+    useUserProfile(user);
   const [status, setStatus] = React.useState("free");
   const [showAuth, setShowAuth] = React.useState(false);
   const [showSetAvatar, setShowSetAvatar] = React.useState(false);
@@ -236,7 +235,7 @@ const ActionWrapper = styled.div`
 const SmallButton = styled(Button)`
   width: 9rem;
   margin: 0;
-  font-size: ${FONT_SIZE.small};
+  font-size: ${FONT_SIZE.tiny};
 `;
 
 export default UserProfileCard;

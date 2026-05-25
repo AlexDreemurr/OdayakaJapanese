@@ -30,6 +30,7 @@ import {
   Plus,
   Volume2,
   LoaderCircle,
+  BookOpen,
 } from "lucide-react";
 
 const icons = {
@@ -65,6 +66,7 @@ const icons = {
   plus: Plus,
   volume: Volume2,
   loader: LoaderCircle,
+  bookOpen: BookOpen,
   "chevron-down": ChevronDown,
 };
 

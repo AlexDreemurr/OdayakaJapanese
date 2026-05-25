@@ -101,11 +101,13 @@ function SettingsPage({ resetAnswerToast }) {
     refetchJoinedPhraseSets();
   }
 
-  const manageablePhraseSets = [...createdPhraseSets, ...joinedPhraseSets]
-    .filter(
-      (phraseSet, index, allPhraseSets) =>
-        allPhraseSets.findIndex((item) => item.id === phraseSet.id) === index
-    );
+  const manageablePhraseSets = [
+    ...createdPhraseSets,
+    ...joinedPhraseSets,
+  ].filter(
+    (phraseSet, index, allPhraseSets) =>
+      allPhraseSets.findIndex((item) => item.id === phraseSet.id) === index
+  );
   const selectedManagePhraseSets = manageablePhraseSets.filter((phraseSet) =>
     selectedManageSetIds.includes(phraseSet.id)
   );
@@ -130,7 +132,7 @@ function SettingsPage({ resetAnswerToast }) {
                 )
               }
             >
-              {settingsView === "preferences" ? "词汇集管理" : "偏好设置"}
+              {settingsView === "preferences" ? "偏好设置" : "词汇集管理"}
             </ManageButton>
           }
         />
@@ -299,13 +301,13 @@ const Title = styled.h1`
 
 const Description = styled.p`
   color: var(--gray40);
-  font-size: ${FONT_SIZE.default};
+  font-size: ${FONT_SIZE.small};
 `;
 
 const ManageButton = styled(Button)`
   width: 9rem;
   margin: 0;
-  font-size: ${FONT_SIZE.small};
+  font-size: ${FONT_SIZE.tiny};
 `;
 
 const ManageActions = styled.div`

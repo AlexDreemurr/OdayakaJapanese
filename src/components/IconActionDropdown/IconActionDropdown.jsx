@@ -4,11 +4,16 @@ import { FONT_FAMILY, FONT_SIZE } from "../../constants/index";
 import Icon from "../Icon/Icon";
 import UnstyledButton from "../UnstyledButton/UnstyledButton";
 
-function IconActionDropdown({ label = "更多操作", actions }) {
+function IconActionDropdown({
+  label = "更多操作",
+  actions,
+  className,
+  closeOnSelect = false,
+}) {
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
-        <Trigger type="button" aria-label={label}>
+        <Trigger type="button" aria-label={label} className={className}>
           <Icon id="menu" size="1.3rem" color="var(--gray15)" />
         </Trigger>
       </DropdownMenu.Trigger>
@@ -18,7 +23,9 @@ function IconActionDropdown({ label = "更多操作", actions }) {
             <Item
               key={action.label}
               onSelect={(event) => {
-                event.preventDefault();
+                if (!closeOnSelect) {
+                  event.preventDefault();
+                }
                 action.onSelect?.();
               }}
             >

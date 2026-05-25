@@ -240,9 +240,7 @@ const Wrapper = styled.form`
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  padding: 0 1.5rem;
   min-width: 0;
-  max-width: 600px;
   width: 100%;
 `;
 const TitleWrapper = styled.h1`

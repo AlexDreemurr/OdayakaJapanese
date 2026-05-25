@@ -5,7 +5,7 @@ import MyTooltip from "../MyTooltip/MyTooltip";
 import { requestVoicevoxAudio } from "../../services/voicevoxTts";
 import { DEFAULT_VOICEVOX_SPEAKER } from "../../constants/voicevoxSpeakers";
 
-function SentenceSpeaker({ sentence, speaker = 2 }) {
+function SentenceSpeaker({ sentence, speaker = DEFAULT_VOICEVOX_SPEAKER }) {
   const [status, setStatus] = React.useState("idle");
   const audioRef = React.useRef(null);
   const audioUrlRef = React.useRef(null);
@@ -80,29 +80,32 @@ function SentenceSpeaker({ sentence, speaker = 2 }) {
           <SpeakerButton
             type="button"
             onClick={handleClick}
-            disabled={isBusy}
+            disabled={isBusy || hasError}
             aria-label="朗读句子"
           >
             <Icon id={isBusy ? "loader" : "volume"} size={18} />
           </SpeakerButton>
         }
       >
-        {isLoading && "生成中..."}
-        {isPlaying && "播放中..."}
-        {!isBusy && "朗读"}
+        {hasError && "错误"}
+        {!hasError && isLoading && "生成中..."}
+        {!hasError && isPlaying && "播放中..."}
+        {!hasError && !isBusy && "朗读"}
       </MyTooltip>
-      {hasError && <ErrorText>朗读失败</ErrorText>}
     </Wrapper>
   );
 }
 
 const Wrapper = styled.div`
-  display: flex;
+  position: absolute;
+  top: -0.3rem;
+  right: -0.3rem;
+  /* display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 0.5rem;
   margin-top: -1.5rem;
-  text-indent: 0;
+  text-indent: 0; */
 `;
 
 const SpeakerButton = styled.button`
