@@ -2,7 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import babel from "@rolldown/plugin-babel";
 
-const base = process.env.VITE_BASE_PATH || "/";
+const base = process.env.VERCEL ? "/" : process.env.VITE_BASE_PATH || "/";
 
 // https://vite.dev/config/
 export default defineConfig({
