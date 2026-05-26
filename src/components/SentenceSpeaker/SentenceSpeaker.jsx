@@ -81,9 +81,14 @@ function SentenceSpeaker({ sentence, speaker = DEFAULT_VOICEVOX_SPEAKER }) {
             type="button"
             onClick={handleClick}
             disabled={isBusy || hasError}
+            data-error={hasError}
             aria-label="朗读句子"
           >
-            <Icon id={isBusy ? "loader" : "volume"} size={18} />
+            <Icon
+              id={hasError ? "ban" : isBusy ? "loader" : "volume"}
+              color={hasError ? "var(--red15)" : undefined}
+              size={18}
+            />
           </SpeakerButton>
         }
       >
@@ -127,6 +132,11 @@ const SpeakerButton = styled.button`
   &:disabled {
     cursor: wait;
     opacity: 0.65;
+  }
+
+  &:disabled[data-error="true"] {
+    cursor: not-allowed;
+    opacity: 1;
   }
 `;
 

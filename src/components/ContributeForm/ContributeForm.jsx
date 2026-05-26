@@ -44,12 +44,15 @@ function ContributeForm({
 
   async function WordImplement() {
     setStatus("busy");
+    const normalizedWord = word.trim();
+    const normalizedNotation = notation.trim();
+    const normalizedContributor = contributor.trim();
 
     /* 先查重， 如果已经存在则不添加！ */
     const { data: existing, error: queryError } = await supabase
       .from("vocabulary")
       .select("word")
-      .eq("word", word.trim())
+      .eq("word", normalizedWord)
       .eq("set_id", selectedPhraseSet) // 只在当前词汇集内查重，不同词汇集里可以有同名单词。
       .maybeSingle();
 
@@ -64,6 +67,49 @@ function ContributeForm({
       setStatus("error");
       setErrorMsg(`「${word}」已经存在于词典中`);
       return;
+    }
+
+    if (normalizedNotation === "") {
+      const { data: reusableVocab, error: reusableQueryError } = await supabase
+        .from("vocabulary")
+        .select("*")
+        .eq("word", normalizedWord)
+        .limit(1)
+        .maybeSingle();
+
+      if (reusableQueryError) {
+        setStatus("error");
+        setErrorMsg(reusableQueryError.message);
+        return;
+      }
+
+      if (reusableVocab) {
+        const copiedVocab = {
+          ...reusableVocab,
+          contributor_name: normalizedContributor || null,
+          set_id: selectedPhraseSet,
+        };
+
+        delete copiedVocab.id;
+        delete copiedVocab.create_at;
+        delete copiedVocab.created_at;
+
+        const { error } = await supabase.from("vocabulary").insert(copiedVocab);
+
+        if (error) {
+          setStatus("error");
+          setErrorMsg(error.message);
+          console.error("插入失败", error.message);
+        } else {
+          setStatus("success");
+          setWord("");
+          setNotation("");
+          console.log("插入成功");
+          onSuccess?.();
+        }
+
+        return;
+      }
     }
 
     const result = await deepseekAPI(

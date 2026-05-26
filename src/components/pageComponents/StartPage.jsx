@@ -4,6 +4,10 @@ import LinkWrapper from "../LinkWrapper/LinkWrapper";
 import Button from "../Button/Button";
 
 function StartPage() {
+  const isLocalLoopback = ["localhost", "127.0.0.1", "::1"].includes(
+    window.location.hostname
+  );
+
   return (
     <Wrapper>
       <ImgWrapper>
@@ -17,6 +21,11 @@ function StartPage() {
           <Button as="div">共享词汇练习</Button>
         </LinkWrapper>
       </LinkGroup>
+      {isLocalLoopback && (
+        <DebugEntry to="/debug" aria-label="进入调试页">
+          进入调试页
+        </DebugEntry>
+      )}
     </Wrapper>
   );
 }
@@ -41,5 +50,26 @@ const LinkGroup = styled.div`
   gap: 0.5rem;
   width: 100%;
   max-width: 150px;
+`;
+
+const DebugEntry = styled(LinkWrapper)`
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 20;
+  width: auto;
+  padding: 0.45rem 0.75rem;
+  border: 1px solid var(--gray60);
+  border-radius: 8px;
+  background-color: var(--gray15);
+  color: var(--gray85);
+  font-size: 0.875rem;
+  line-height: 1;
+  text-decoration: none;
+  box-shadow: 0 6px 18px hsl(0deg 0% 0% / 0.18);
+
+  &:hover {
+    background-color: var(--gray25);
+  }
 `;
 export default StartPage;

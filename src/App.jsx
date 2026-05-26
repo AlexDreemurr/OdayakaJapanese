@@ -8,6 +8,7 @@ import StartPage from "./components/pageComponents/StartPage";
 import HistoryPage from "./components/pageComponents/HistoryPage";
 import PhraseSetPage from "./components/pageComponents/PhraseSetPage";
 import SettingsPage from "./components/pageComponents/SettingsPage";
+import DebugPage from "./components/pageComponents/DebugPage";
 
 /* Components */
 import Header from "./components/Header/Header";
@@ -24,6 +25,10 @@ function getCorrectToastStatus(streak) {
 }
 
 function App() {
+  const isLocalLoopback = ["localhost", "127.0.0.1", "::1"].includes(
+    window.location.hostname
+  );
+
   const [historyQuizes, setHistoryQuizes] = React.useState(() => {
     return JSON.parse(window.localStorage.getItem("historyQuizes") ?? "[]");
   });
@@ -126,6 +131,7 @@ function App() {
               path="/settings"
               element={<SettingsPage resetAnswerToast={resetAnswerToast} />}
             />
+            {isLocalLoopback && <Route path="/debug" element={<DebugPage />} />}
           </Routes>
           <HelperBox />
           <Header />
