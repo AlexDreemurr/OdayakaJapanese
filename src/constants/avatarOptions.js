@@ -1,7 +1,36 @@
-import supabase from "../supabaseClient";
+﻿import supabase from "../supabaseClient";
 
 export const FALLBACK_AVATAR_VALUE = "__fallback_avatar__";
 export const DEFAULT_SELECTABLE_AVATAR_VALUE = FALLBACK_AVATAR_VALUE;
+
+const NON_MANKIND_AVATARS = [
+  "bird_koajisashi.png",
+  "building_house1.png",
+  "cat4_laugh.png",
+  "christmas_cake.png",
+  "cooking_syoukousyu.png",
+  "eto_remake_inu.png",
+  "flower_kasumisou.png",
+  "flower_mikan.png",
+  "food_sushi_pack_waribiki.png",
+  "food_yakitoridon.png",
+  "fruit_apple.png",
+  "fruit_sudachi.png",
+  "gym_running_people_dark.png",
+  "hotaru_kansyou.png",
+  "icecream.png",
+  "mark_syouzai_shinpou.png",
+  "rocket_vtvl_catch.png",
+  "sakura_kaika.png",
+  "smartphone.png",
+  "sweets_kashiwamochi_tsubu.png",
+  "sweets_taiyaki1_tsubuan.png",
+  "sweets_yakiimo.png",
+  "toilet_kirei.png",
+  "tropical_drink.png",
+  "tsuru_origami.png",
+  "valentinesday_rose.png",
+];
 
 export const AVATAR_SECTIONS = [
   {
@@ -38,6 +67,14 @@ export const AVATAR_SECTIONS = [
       { id: "either_8", path: "either/either_8.png" },
       { id: "fallback", path: null },
     ],
+  },
+  {
+    id: "non_mankind",
+    title: "非人間",
+    avatars: NON_MANKIND_AVATARS.map((fileName) => ({
+      id: `non_mankind_${fileName.replace(/\.[^.]+$/, "")}`,
+      path: `non-mankind/${fileName}`,
+    })),
   },
 ];
 

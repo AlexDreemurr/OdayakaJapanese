@@ -65,10 +65,9 @@ const Root = styled(Avatar.Root)`
 `;
 
 const Image = styled(Avatar.Image)`
-  width: auto;
+  width: 100%;
   height: 100%;
   display: block;
-  max-width: none;
   object-fit: contain;
   object-position: center;
 `;
