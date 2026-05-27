@@ -11,10 +11,10 @@ import { formatToChinaTime } from "../../utility";
 import PitchReading, { getMoras } from "../PitchReading/PitchReading";
 import supabase from "../../supabaseClient";
 import AlertDialog from "../AlertDialog/AlertDialog";
-import { FormModal } from "../FormModal/FormModal";
 import EditableText from "../EditableText/EditableText";
 import SentenceBox from "../SentenceBox/SentenceBox";
 import IconActionDropdown from "../IconActionDropdown/IconActionDropdown";
+import { useAppMessages } from "../AppMessages/AppMessagesContext";
 
 function getCorrectCounts(correctCounts) {
   if (!Array.isArray(correctCounts)) {
@@ -43,10 +43,10 @@ function PhraseDialog({
   const [examples, setExamples] = React.useState([]);
   const [status, setStatus] = React.useState("free");
   const [draftPitch, setDraftPitch] = React.useState("");
-  const [showReviewNotice, setShowReviewNotice] = React.useState(false);
   const [contentView, setContentView] = React.useState("details");
   const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
   const [draftPhrase, setDraftPhrase] = React.useState(phrase);
+  const { addMessage } = useAppMessages();
   const completedSentenceCount = getCompletedSentenceCount(
     draftPhrase.practiceCorrectCounts
   );
@@ -109,6 +109,11 @@ function PhraseDialog({
 
   async function savePhraseChanges(changes) {
     const nextPhrase = { ...draftPhrase, ...changes };
+    if (!canEdit) {
+      await submitPhraseChangeRequest("update", changes);
+      return;
+    }
+
     const { data, error } = await supabase.rpc("update_vocabulary_item", {
       p_vocabulary_id: draftPhrase.id,
       p_word: nextPhrase.word,
@@ -131,11 +136,6 @@ function PhraseDialog({
   }
 
   function requestInlineEdit() {
-    if (!canEdit) {
-      setShowReviewNotice(true);
-      return false;
-    }
-
     return true;
   }
 
@@ -184,6 +184,12 @@ function PhraseDialog({
   }
 
   async function handleDeletePhrase() {
+    if (!canEdit) {
+      await submitPhraseChangeRequest("delete", {});
+      setShowDeleteConfirm(false);
+      return;
+    }
+
     const { data, error } = await supabase.rpc("delete_vocabulary_item", {
       p_vocabulary_id: draftPhrase.id,
     });
@@ -198,12 +204,44 @@ function PhraseDialog({
   }
 
   function requestDeletePhrase() {
-    if (!canEdit) {
-      setShowReviewNotice(true);
-      return;
+    setShowDeleteConfirm(true);
+  }
+
+  async function submitPhraseChangeRequest(action, changes) {
+    const { data, error } = await supabase.rpc("request_vocabulary_item_change", {
+      p_vocabulary_id: draftPhrase.id,
+      p_action: action,
+      p_changes: changes,
+    });
+
+    if (error || data !== "ok") {
+      const content =
+        data === "not_authenticated"
+          ? "请先登录后再提交词条修改申请。"
+          : data === "forbidden"
+          ? "你需要先加入这个词汇集，才能提交修改申请。"
+          : data === "already_allowed"
+          ? "你已经有直接编辑权限，请刷新后重试。"
+          : "申请提交失败，请稍后重试。";
+
+      console.error(error?.message ?? data);
+      addMessage({
+        type: "error",
+        senderName: "系统",
+        content,
+      });
+      return false;
     }
 
-    setShowDeleteConfirm(true);
+    addMessage({
+      type: "success",
+      senderName: "系统",
+      content:
+        action === "delete"
+          ? `已提交删除「${draftPhrase.word}」的申请。`
+          : `已提交修改「${draftPhrase.word}」的申请，等待管理员处理。`,
+    });
+    return true;
   }
 
   function toggleHistoryView() {
@@ -291,7 +329,7 @@ function PhraseDialog({
                     <DeleteIconButton
                       type="button"
                       aria-label="申请删除词条"
-                      onClick={() => setShowReviewNotice(true)}
+                      onClick={requestDeletePhrase}
                     >
                       <IconWrapper id="remove" size="1.3rem" />
                     </DeleteIconButton>
@@ -303,9 +341,13 @@ function PhraseDialog({
                 <AlertDialog
                   open={showDeleteConfirm}
                   onOpenChange={setShowDeleteConfirm}
-                  title="Delete phrase"
-                  description={`Delete "${draftPhrase.word}"? This cannot be undone.`}
-                  confirmText="Delete"
+                  title={canEdit ? "删除词条" : "申请删除词条"}
+                  description={
+                    canEdit
+                      ? `确定要删除「${draftPhrase.word}」吗？这个操作不能撤销。`
+                      : `提交删除「${draftPhrase.word}」的申请，等待管理员处理？`
+                  }
+                  confirmText={canEdit ? "确认删除" : "提交申请"}
                   onConfirm={handleDeletePhrase}
                 />
                 {/*
@@ -429,21 +471,6 @@ function PhraseDialog({
               </SentenceHistoryGrid>
             )}
           </Body>
-          {showReviewNotice && (
-            <FormModal
-              open
-              onOpenChange={(open) => {
-                if (!open) {
-                  setShowReviewNotice(false);
-                }
-              }}
-              title="需要审核"
-            >
-              <ReviewNotice>
-                普通用户提交修改需要审核。审核机制还没有开放，请先联系词汇集管理员。
-              </ReviewNotice>
-            </FormModal>
-          )}
         </Content>
       </Dialog.Portal>
     </Dialog.Root>
@@ -640,18 +667,13 @@ const RightMeta = styled.div`
   align-items: flex-end;
   gap: 0.25rem;
 `;
-const ReviewNotice = styled.p`
-  color: var(--gray15);
-  font-family: ${FONT_FAMILY.chinese_primary};
-  font-size: ${FONT_SIZE.default};
-  line-height: 1.6;
-`;
 const ExampleWrapper = styled.div`
   display: flex;
   flex-direction: column;
   gap: 0rem;
   max-height: 200px;
   overflow: auto;
+  width: 100%;
 `;
 const Example = styled.div`
   display: flex;

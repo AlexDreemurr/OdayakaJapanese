@@ -31,8 +31,8 @@ function SideMenu() {
               </LinkWrapper>
             </Dialog.Close>
             <Dialog.Close asChild>
-              <LinkWrapper fontSize={FONT_SIZE.default} to="/history">
-                历史
+              <LinkWrapper fontSize={FONT_SIZE.default} to="/messages">
+                消息
               </LinkWrapper>
             </Dialog.Close>
             <Dialog.Close asChild>
@@ -65,6 +65,7 @@ const Overlay = styled(Dialog.Overlay)`
   background-color: var(--transparentGray15);
   z-index: 100;
 `;
+
 const Content = styled(Dialog.Content)`
   position: fixed;
   top: 0;
@@ -79,9 +80,11 @@ const Content = styled(Dialog.Content)`
   display: flex;
   flex-direction: column;
 `;
+
 const XWrapper = styled(UnstyledButton)`
   color: var(--gray15);
 `;
+
 const Close = styled(Dialog.Close)`
   position: absolute;
   top: 0.2rem;
@@ -94,9 +97,11 @@ const Close = styled(Dialog.Close)`
     right: 0.35rem;
   }
 `;
+
 const MagicBox = styled.div`
   flex: 1;
 `;
+
 const Nav = styled.nav`
   display: flex;
   flex-direction: column;
@@ -105,6 +110,7 @@ const Nav = styled.nav`
 
   font-weight: 600;
 `;
+
 const Footer = styled.footer`
   height: 100%;
 
@@ -113,6 +119,7 @@ const Footer = styled.footer`
   flex-direction: column;
   justify-content: flex-end;
 `;
+
 const FooterText = styled.p`
   font-size: 0.8rem;
   line-height: 1;
@@ -121,4 +128,5 @@ const FooterText = styled.p`
   color: var(--gray40);
   font-family: Raleway;
 `;
+
 export default SideMenu;

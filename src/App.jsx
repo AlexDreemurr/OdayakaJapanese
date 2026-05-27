@@ -1,11 +1,11 @@
 import React from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
 import GlobalStyles from "./GlobalStyles";
 
 /* Page Components */
 import QuizPage from "./components/pageComponents/QuizPage";
 import StartPage from "./components/pageComponents/StartPage";
-import HistoryPage from "./components/pageComponents/HistoryPage";
+import MessagesPage from "./components/pageComponents/MessagesPage";
 import PhraseSetPage from "./components/pageComponents/PhraseSetPage";
 import SettingsPage from "./components/pageComponents/SettingsPage";
 import DebugPage from "./components/pageComponents/DebugPage";
@@ -13,6 +13,7 @@ import DebugPage from "./components/pageComponents/DebugPage";
 /* Components */
 import Header from "./components/Header/Header";
 import { CharacterToastOverlay } from "./components/CharacterToast/CharacterToast";
+import { AppMessagesProvider } from "./components/AppMessages/AppMessages";
 import styled from "styled-components";
 import { KatakanaRateContext } from "./KatakanaRateContext";
 import { TOAST_DELAY } from "./constants/index";
@@ -91,54 +92,57 @@ function App() {
 
   return (
     <KatakanaRateContext.Provider value={{ katakanaRate, setKatakanaRate }}>
-      <BrowserRouter basename={import.meta.env.BASE_URL}>
-        <Root>
-          <CharacterToastOverlay answerToast={answerToast} />
-          <HelperBox />
-          <Routes>
-            <Route path="/" element={<StartPage />} />
-            <Route
-              path="/quiz/grammar"
-              element={
-                <QuizPage
-                  source="grammar"
-                  historyQuizes={historyQuizes}
-                  setHistoryQuizes={setHistoryQuizes}
-                  showAnswerToast={showAnswerToast}
-                  hideAnswerToast={hideAnswerToast}
-                />
-              }
-            />
-            <Route
-              path="/quiz/sharedDict"
-              element={
-                <QuizPage
-                  source="sharedDict"
-                  historyQuizes={historyQuizes}
-                  setHistoryQuizes={setHistoryQuizes}
-                  showAnswerToast={showAnswerToast}
-                  hideAnswerToast={hideAnswerToast}
-                />
-              }
-            />
-            <Route
-              path="/history"
-              element={<HistoryPage historyQuizes={historyQuizes} />}
-            />
-            <Route path="/phraseSetList" element={<PhraseSetPage />} />
-            <Route path="/phraseSet/:phraseSetId" element={<PhraseSetPage />} />
-            <Route
-              path="/settings"
-              element={<SettingsPage resetAnswerToast={resetAnswerToast} />}
-            />
-            {isLocalLoopback && <Route path="/debug" element={<DebugPage />} />}
-          </Routes>
-          <HelperBox />
-          <Header />
-        </Root>
+      <AppMessagesProvider>
+        <BrowserRouter basename={import.meta.env.BASE_URL}>
+          <Root>
+            <CharacterToastOverlay answerToast={answerToast} />
+            <HelperBox />
+            <Routes>
+              <Route path="/" element={<StartPage />} />
+              <Route
+                path="/quiz/grammar"
+                element={
+                  <QuizPage
+                    source="grammar"
+                    historyQuizes={historyQuizes}
+                    setHistoryQuizes={setHistoryQuizes}
+                    showAnswerToast={showAnswerToast}
+                    hideAnswerToast={hideAnswerToast}
+                  />
+                }
+              />
+              <Route
+                path="/quiz/sharedDict"
+                element={
+                  <QuizPage
+                    source="sharedDict"
+                    historyQuizes={historyQuizes}
+                    setHistoryQuizes={setHistoryQuizes}
+                    showAnswerToast={showAnswerToast}
+                    hideAnswerToast={hideAnswerToast}
+                  />
+                }
+              />
+              <Route path="/messages" element={<MessagesPage />} />
+              <Route
+                path="/history"
+                element={<Navigate to="/messages" replace />}
+              />
+              <Route path="/phraseSetList" element={<PhraseSetPage />} />
+              <Route path="/phraseSet/:phraseSetId" element={<PhraseSetPage />} />
+              <Route
+                path="/settings"
+                element={<SettingsPage resetAnswerToast={resetAnswerToast} />}
+              />
+              {isLocalLoopback && <Route path="/debug" element={<DebugPage />} />}
+            </Routes>
+            <HelperBox />
+            <Header />
+          </Root>
 
-        <GlobalStyles />
-      </BrowserRouter>
+          <GlobalStyles />
+        </BrowserRouter>
+      </AppMessagesProvider>
     </KatakanaRateContext.Provider>
   );
 }

@@ -3,6 +3,7 @@ import styled from "styled-components";
 import supabase from "../../supabaseClient";
 import { FONT_SIZE } from "../../constants/index";
 import UnstyledButton from "../UnstyledButton/UnstyledButton";
+import { useAppMessages } from "../AppMessages/AppMessagesContext";
 import {
   ButtonWrapper,
   Fields,
@@ -26,6 +27,7 @@ function AuthModal({ onClose }) {
   const [error, setError] = React.useState(null);
   const [message, setMessage] = React.useState(null);
   const [loading, setLoading] = React.useState(false);
+  const { addMessage } = useAppMessages();
 
   async function syncUserProfile(user) {
     if (!user?.id) {
@@ -67,7 +69,13 @@ function AuthModal({ onClose }) {
         setError(error.message);
       } else {
         await syncUserProfile(data.user);
-        setMessage("注册成功！请查收确认邮件。");
+        const content = "注册成功！请查收确认邮件。";
+        setMessage(content);
+        addMessage({
+          type: "success",
+          senderName: "系统",
+          content,
+        });
       }
     }
 

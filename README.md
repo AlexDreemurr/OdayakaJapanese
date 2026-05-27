@@ -10,7 +10,7 @@
 - **共享词汇练习**：从 Supabase `vocabulary` 表抽取词汇与例句，按词汇集范围生成题目。
 - **词汇集系统**：支持创建、编辑、删除、加入公开词汇集，并管理词汇集成员权限。
 - **AI 辅助加词**：通过 `deepseek-chat` 生成词义、读音、音调、例句和目标读音。
-- **历史记录**：将练习过的题目保存到 `localStorage`。
+- **消息中心**：集中显示注册、词汇集申请等消息，并通过右下角全局 toast 即时提示。
 - **个性化设置**：可配置共享词汇练习的题库范围，以及选项显示假名的比例。
 - **用户系统**：通过 Supabase Auth 登录，并保存用户资料和头像。
 - **句子朗读**：`SentenceSpeaker` 调用 VOICEVOX TTS 代理生成音频。
@@ -185,7 +185,7 @@ npm run deploy:github
 | `/` | 首页 |
 | `/quiz/grammar` | 语法练习 |
 | `/quiz/sharedDict` | 共享词汇练习 |
-| `/history` | 历史记录 |
+| `/messages` | 消息中心 |
 | `/phraseSetList` | 词汇集列表 |
 | `/phraseSet/:phraseSetId` | 词汇集详情 |
 | `/settings` | 设置与词汇集管理 |
@@ -362,4 +362,3 @@ npm run deploy:github
 - 语法题库依赖远程 CSV，离线或 GitHub raw 不可访问时语法练习会受影响。
 - VOICEVOX 朗读依赖本地或公网代理；未配置时朗读按钮会进入错误状态。
 - `dist/`、`storybook-static/` 属于构建产物，通常不需要人工编辑。
-

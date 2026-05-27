@@ -1,8 +1,7 @@
 import styled from "styled-components";
 import LinkWrapper from "../LinkWrapper/LinkWrapper";
 import SideMenu from "../SideMenu/SideMenu";
-import { FONT_FAMILY, QUERIES } from "../../constants/index";
-import { FONT_SIZE } from "../../constants/index";
+import { FONT_FAMILY, FONT_SIZE, QUERIES } from "../../constants/index";
 
 export default function Header() {
   return (
@@ -20,8 +19,8 @@ export default function Header() {
         <LinkWrapper fontSize={FONT_SIZE.default} to="/phraseSetList">
           词汇集
         </LinkWrapper>
-        <LinkWrapper fontSize={FONT_SIZE.default} to="/history">
-          历史
+        <LinkWrapper fontSize={FONT_SIZE.default} to="/messages">
+          消息
         </LinkWrapper>
         <LinkWrapper fontSize={FONT_SIZE.default} to="/settings">
           设置
@@ -76,10 +75,12 @@ const TitleDesktop = styled(LinkWrapper)`
     display: revert;
   }
 `;
+
 const SpanDesktop = styled.span`
   font-size: inherit;
   letter-spacing: -3px;
 `;
+
 const TitleMobile = styled(TitleDesktop)`
   font-size: 1rem;
   display: block;
@@ -87,6 +88,7 @@ const TitleMobile = styled(TitleDesktop)`
     display: none;
   }
 `;
+
 const SpanMobile = styled.span`
   font-size: inherit;
   letter-spacing: 1px;
