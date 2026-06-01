@@ -3,7 +3,8 @@ import Button from "../Button/Button";
 import React from "react";
 import SentenceBox from "../SentenceBox/SentenceBox";
 import { PacmanLoader } from "react-spinners";
-import { deepseekAPI, getSentenceText } from "../../utility";
+import { getSentenceText } from "../../utility";
+import { callDeepseek } from "../../services/ai";
 import PitchReading from "../PitchReading/PitchReading";
 
 export default function QuizAnswer({
@@ -31,7 +32,7 @@ export default function QuizAnswer({
     setIsLoading(true);
     setTranslateError(null);
     try {
-      const result = await deepseekAPI(
+      const result = await callDeepseek(
         getSentenceText(quizObject.rawSentence),
         "你是一个日文翻译助手。用户会发送日文句子，你只需要回复对应的中文翻译，不要添加任何解释或多余内容。",
         "translate"
