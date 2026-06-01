@@ -2,7 +2,13 @@ import React from "react";
 import styled, { keyframes } from "styled-components";
 import * as Toast from "@radix-ui/react-toast";
 import * as Collapsible from "@radix-ui/react-collapsible";
-import supabase from "../../supabaseClient";
+import { getUser, onAuthStateChange } from "../../services/auth";
+import {
+  getAppMessages,
+  getVocabularyChangeRequests,
+  getVocabularySetsByIds,
+} from "../../services/vocabularySets";
+import { getVocabsByIds } from "../../services/words";
 import { FONT_FAMILY, FONT_SIZE, QUERIES } from "../../constants";
 import Icon from "../Icon/Icon";
 import UnstyledButton from "../UnstyledButton/UnstyledButton";
@@ -110,12 +116,8 @@ async function enrichVocabularyRequestMessages(messages) {
     return messages;
   }
 
-  const { data: requestRows, error: requestError } = await supabase
-    .from("vocabulary_change_requests")
-    .select(
-      "id, action, status, changes, original_data, vocabulary_id, set_id"
-    )
-    .in("id", requestIds);
+  const { data: requestRows, error: requestError } =
+    await getVocabularyChangeRequests(requestIds);
 
   if (requestError) {
     console.warn("Failed to enrich vocabulary request messages.", requestError);
@@ -138,13 +140,10 @@ async function enrichVocabularyRequestMessages(messages) {
 
   const [vocabularyResult, setResult] = await Promise.all([
     vocabularyIds.length > 0
-      ? supabase
-          .from("vocabulary")
-          .select("id, word, reading, pitch, meaning, contributor_name")
-          .in("id", vocabularyIds)
+      ? getVocabsByIds(vocabularyIds)
       : Promise.resolve({ data: [], error: null }),
     setIds.length > 0
-      ? supabase.from("vocabulary_sets").select("id, name").in("id", setIds)
+      ? getVocabularySetsByIds(setIds)
       : Promise.resolve({ data: [], error: null }),
   ]);
 
@@ -254,7 +253,7 @@ export function AppMessagesProvider({ children }) {
   const refreshMessages = React.useCallback(async () => {
     const {
       data: { user },
-    } = await supabase.auth.getUser();
+    } = await getUser();
 
     if (!user) {
       setRemoteMessages([]);
@@ -263,14 +262,7 @@ export function AppMessagesProvider({ children }) {
     }
 
     setStatus("loading");
-    const { data, error } = await supabase
-      .from("app_messages")
-      .select(
-        "id, type, sender_name, sender_avatar_path, content, metadata, created_at, read_at"
-      )
-      .eq("recipient_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(100);
+    const { data, error } = await getAppMessages(user.id);
 
     if (error) {
       if (!/app_messages|schema cache|PGRST205/i.test(error.message ?? "")) {
@@ -290,7 +282,7 @@ export function AppMessagesProvider({ children }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => {
+    } = onAuthStateChange(() => {
       refreshMessages();
     });
 

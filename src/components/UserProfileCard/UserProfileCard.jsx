@@ -1,6 +1,6 @@
 import React from "react";
 import styled from "styled-components";
-import supabase from "../../supabaseClient";
+import { updateUserMetadata, upsertUserProfile } from "../../services/auth";
 import { FONT_FAMILY, FONT_SIZE } from "../../constants";
 import {
   isMissingProfileTable,
@@ -83,9 +83,7 @@ function UserProfileCard({ user, isLoggedIn, signOut, extraAction }) {
     const nextUserMetadata = { ...displayUser?.user_metadata };
     nextUserMetadata.display_name = nextDisplayName;
 
-    const { data, error } = await supabase.auth.updateUser({
-      data: nextUserMetadata,
-    });
+    const { data, error } = await updateUserMetadata(nextUserMetadata);
 
     if (error) {
       console.error(error.message);
@@ -93,15 +91,11 @@ function UserProfileCard({ user, isLoggedIn, signOut, extraAction }) {
       return;
     }
 
-    const { error: profileError } = await supabase.from("user_profiles").upsert(
-      {
-        user_id: data.user.id,
-        avatar_path: avatarPath,
-        display_name: nextDisplayName,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "user_id" }
-    );
+    const { error: profileError } = await upsertUserProfile({
+      user_id: data.user.id,
+      avatar_path: avatarPath,
+      display_name: nextDisplayName,
+    });
 
     if (profileError && !isMissingProfileTable(profileError)) {
       console.error(profileError.message);

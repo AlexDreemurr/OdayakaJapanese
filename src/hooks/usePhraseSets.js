@@ -1,5 +1,6 @@
 import React from "react";
-import supabase from "../supabaseClient";
+import { getSession } from "../services/auth";
+import { getMemberSetIds, queryVocabularySets } from "../services/vocabularySets";
 import { getStoredSharedDictSetIds } from "../sharedDictSettings";
 
 const DEFAULT_PHRASE_SET_ID = 1;
@@ -14,7 +15,7 @@ function usePhraseSets({ scope = "accessible", search = "" } = {}) {
     const {
       data: { session },
       error: sessionError,
-    } = await supabase.auth.getSession();
+    } = await getSession();
 
     if (sessionError) {
       setStatus("error");
@@ -25,10 +26,7 @@ function usePhraseSets({ scope = "accessible", search = "" } = {}) {
 
     let memberSetIds = [];
     if (user) {
-      const { data: memberships, error: membershipError } = await supabase
-        .from("set_members")
-        .select("set_id")
-        .eq("user_id", user.id);
+      const { data: memberships, error: membershipError } = await getMemberSetIds(user.id);
 
       if (membershipError) {
         setStatus("error");
@@ -38,7 +36,9 @@ function usePhraseSets({ scope = "accessible", search = "" } = {}) {
       memberSetIds = memberships.map((membership) => membership.set_id);
     }
 
-    let query = supabase.from("vocabulary_sets").select("*, vocabulary(count)");
+    let filterType;
+    let setIds;
+    let excludeIds;
 
     if (scope === "created") {
       if (!user) {
@@ -46,27 +46,22 @@ function usePhraseSets({ scope = "accessible", search = "" } = {}) {
         setStatus("ok");
         return;
       }
-
-      query = query.or(`owner_id.eq.${user.id},user_id.eq.${user.id}`);
+      filterType = "byOwner";
     } else if (scope === "joined") {
       if (!user) {
-        query = query.eq("id", DEFAULT_PHRASE_SET_ID);
+        filterType = "byIds";
+        setIds = [DEFAULT_PHRASE_SET_ID];
       } else if (memberSetIds.length === 0) {
         setPhraseSets([]);
         setStatus("ok");
         return;
       } else {
-        query = query.in("id", memberSetIds);
+        filterType = "byIds";
+        setIds = memberSetIds;
       }
     } else if (scope === "public") {
-      query = query.eq("privacy", "public");
-      const hiddenPublicSetIds = Array.from(
-        new Set(user ? memberSetIds : [])
-      );
-
-      if (hiddenPublicSetIds.length > 0) {
-        query = query.not("id", "in", `(${hiddenPublicSetIds.join(",")})`);
-      }
+      filterType = "public";
+      excludeIds = Array.from(new Set(user ? memberSetIds : []));
     } else {
       const storedSetIds = getStoredSharedDictSetIds();
       const accessibleSetIds =
@@ -80,14 +75,17 @@ function usePhraseSets({ scope = "accessible", search = "" } = {}) {
         return;
       }
 
-      query = query.in("id", accessibleSetIds);
+      filterType = "byIds";
+      setIds = accessibleSetIds;
     }
 
-    if (search.trim()) {
-      query = query.ilike("name", `%${search.trim()}%`);
-    }
-
-    const { data, error } = await query;
+    const { data, error } = await queryVocabularySets({
+      filterType,
+      userId: user?.id,
+      setIds,
+      excludeIds,
+      search,
+    });
 
     if (error) {
       setStatus("error");

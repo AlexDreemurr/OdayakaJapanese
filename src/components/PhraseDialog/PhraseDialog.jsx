@@ -9,7 +9,12 @@ import { Star } from "lucide-react";
 import { BarLoader } from "react-spinners";
 import { formatToChinaTime } from "../../utility";
 import PitchReading, { getMoras } from "../PitchReading/PitchReading";
-import supabase from "../../supabaseClient";
+import { fetchTatoebaExamples } from "../../services/tatoeba";
+import {
+  updateVocabularyItem,
+  deleteVocabularyItem,
+  requestVocabularyItemChange,
+} from "../../services/words";
 import AlertDialog from "../AlertDialog/AlertDialog";
 import EditableText from "../EditableText/EditableText";
 import SentenceBox from "../SentenceBox/SentenceBox";
@@ -59,44 +64,9 @@ function PhraseDialog({
     if (!isOpen) return;
     setStatus("busy");
 
-    const base = `https://baedcqmxejvjzyvynqrp.supabase.co/functions/v1/tatoeba-proxy`;
-    const encodedQuery = encodeURIComponent(draftPhrase.word);
-
-    Promise.all([
-      fetch(`${base}?query=${encodedQuery}&trans_to=cmn`).then((r) => r.json()),
-      fetch(`${base}?query=${encodedQuery}`).then((r) => r.json()),
-    ])
-      .then(([cmnData, allData]) => {
-        const cmnResults = (cmnData.results ?? [])
-          .filter((item) => item.text.length <= 80)
-          .filter((item) => item.text.includes(draftPhrase.word))
-          .map((item) => {
-            const trans = item.translations
-              .flat()
-              .find((t) => t.lang === "cmn");
-            return {
-              sentence: item.text,
-              translation: trans?.text ?? "（无翻译）",
-            };
-          });
-
-        const seenSentences = new Set(cmnResults.map((r) => r.sentence));
-
-        const restResults = (allData.results ?? [])
-          .filter((item) => item.text.length <= 80)
-          .filter((item) => item.text.includes(draftPhrase.word))
-          .filter((item) => !seenSentences.has(item.text))
-          .map((item) => {
-            const engTrans = item.translations
-              .flat()
-              .find((t) => t.lang === "eng");
-            return {
-              sentence: item.text,
-              translation: engTrans?.text ?? "（无翻译）",
-            };
-          });
-
-        setExamples([...cmnResults, ...restResults]);
+    fetchTatoebaExamples(draftPhrase.word)
+      .then((results) => {
+        setExamples(results);
         setStatus("free");
       })
       .catch(() => setStatus("free"));
@@ -114,16 +84,13 @@ function PhraseDialog({
       return;
     }
 
-    const { data, error } = await supabase.rpc("update_vocabulary_item", {
-      p_vocabulary_id: draftPhrase.id,
-      p_word: nextPhrase.word,
-      p_reading: nextPhrase.reading,
-      p_pitch:
-        nextPhrase.pitch === null || nextPhrase.pitch === ""
-          ? null
-          : Number(nextPhrase.pitch),
-      p_meaning: nextPhrase.meaning,
-      p_contributor_name: nextPhrase.contributor_name,
+    const { data, error } = await updateVocabularyItem({
+      vocabularyId: draftPhrase.id,
+      word: nextPhrase.word,
+      reading: nextPhrase.reading,
+      pitch: nextPhrase.pitch,
+      meaning: nextPhrase.meaning,
+      contributorName: nextPhrase.contributor_name,
     });
 
     if (error || data !== "ok") {
@@ -190,9 +157,7 @@ function PhraseDialog({
       return;
     }
 
-    const { data, error } = await supabase.rpc("delete_vocabulary_item", {
-      p_vocabulary_id: draftPhrase.id,
-    });
+    const { data, error } = await deleteVocabularyItem(draftPhrase.id);
 
     if (error || data !== "ok") {
       console.error(error?.message ?? data);
@@ -208,10 +173,10 @@ function PhraseDialog({
   }
 
   async function submitPhraseChangeRequest(action, changes) {
-    const { data, error } = await supabase.rpc("request_vocabulary_item_change", {
-      p_vocabulary_id: draftPhrase.id,
-      p_action: action,
-      p_changes: changes,
+    const { data, error } = await requestVocabularyItemChange({
+      vocabularyId: draftPhrase.id,
+      action,
+      changes,
     });
 
     if (error || data !== "ok") {

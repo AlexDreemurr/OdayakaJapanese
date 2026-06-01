@@ -1,6 +1,6 @@
 import React from "react";
 import styled from "styled-components";
-import supabase from "../../supabaseClient";
+import { signInWithPassword, signUp, upsertUserProfile } from "../../services/auth";
 import { FONT_SIZE } from "../../constants/index";
 import UnstyledButton from "../UnstyledButton/UnstyledButton";
 import { useAppMessages } from "../AppMessages/AppMessagesContext";
@@ -34,14 +34,7 @@ function AuthModal({ onClose }) {
       return;
     }
 
-    await supabase.from("user_profiles").upsert(
-      {
-        user_id: user.id,
-        email: user.email,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "user_id" }
-    );
+    await upsertUserProfile({ user_id: user.id, email: user.email });
   }
 
   async function handleSubmit(event) {
@@ -51,10 +44,7 @@ function AuthModal({ onClose }) {
     setLoading(true);
 
     if (mode === "signin") {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const { data, error } = await signInWithPassword(email, password);
 
       if (error) {
         setError(error.message);
@@ -63,7 +53,7 @@ function AuthModal({ onClose }) {
         window.location.reload();
       }
     } else {
-      const { data, error } = await supabase.auth.signUp({ email, password });
+      const { data, error } = await signUp(email, password);
 
       if (error) {
         setError(error.message);

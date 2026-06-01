@@ -1,6 +1,6 @@
 import React from "react";
 import styled from "styled-components";
-import supabase from "../../supabaseClient";
+import { updateUserMetadata, upsertUserProfile } from "../../services/auth";
 import {
   AVATAR_SECTIONS,
   DEFAULT_SELECTABLE_AVATAR_VALUE,
@@ -40,9 +40,7 @@ function SetAvatar({ open, onClose, user, onSaved }) {
     const nextUserMetadata = { ...user?.user_metadata };
     nextUserMetadata.avatar_path = avatarPath;
 
-    const { data, error } = await supabase.auth.updateUser({
-      data: nextUserMetadata,
-    });
+    const { data, error } = await updateUserMetadata(nextUserMetadata);
 
     if (error) {
       setStatus("error");
@@ -50,14 +48,10 @@ function SetAvatar({ open, onClose, user, onSaved }) {
       return;
     }
 
-    const { error: profileError } = await supabase.from("user_profiles").upsert(
-      {
-        user_id: data.user.id,
-        avatar_path: avatarPath,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "user_id" }
-    );
+    const { error: profileError } = await upsertUserProfile({
+      user_id: data.user.id,
+      avatar_path: avatarPath,
+    });
 
     if (profileError) {
       const missingProfileTable = /user_profiles|schema cache|PGRST205/i.test(

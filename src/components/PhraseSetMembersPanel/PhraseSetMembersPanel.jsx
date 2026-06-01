@@ -1,6 +1,15 @@
 import React from "react";
 import styled from "styled-components";
-import supabase from "../../supabaseClient";
+import {
+  getSetMembers,
+  getUserProfiles,
+  updateSetMemberPermissions,
+  updateSetMemberDirect,
+  removeSetMember,
+  leaveSetMember,
+  searchUserProfiles,
+  inviteSetMember,
+} from "../../services/vocabularySets";
 import { FONT_FAMILY, FONT_SIZE } from "../../constants";
 import {
   ButtonWrapper,
@@ -70,17 +79,14 @@ function PhraseSetMembersPanel({
 
   async function handlePermissionChange(member, changes) {
     const nextMember = { ...member, ...changes };
-    const { data, error } = await supabase.rpc(
-      "update_set_member_permissions",
-      {
-        p_set_id: phraseSet.id,
-        p_user_id: member.user_id,
-        p_role: nextMember.role,
-        p_can_contribute: nextMember.can_contribute,
-        p_can_edit_phrases: nextMember.can_edit_phrases,
-        p_can_edit_set: nextMember.can_edit_set,
-      }
-    );
+    const { data, error } = await updateSetMemberPermissions({
+      setId: phraseSet.id,
+      userId: member.user_id,
+      role: nextMember.role,
+      canContribute: nextMember.can_contribute,
+      canEditPhrases: nextMember.can_edit_phrases,
+      canEditSet: nextMember.can_edit_set,
+    });
 
     if (error) {
       const shouldFallbackToDirectUpdate =
@@ -93,17 +99,14 @@ function PhraseSetMembersPanel({
         return;
       }
 
-      const { error: updateError } = await supabase
-        .from("set_members")
-        .update({
-          role: nextMember.role,
-          can_contribute: nextMember.can_contribute,
-          can_edit_phrases: nextMember.can_edit_phrases,
-          can_edit_set: nextMember.can_edit_set,
-        })
-        .eq("set_id", phraseSet.id)
-        .eq("user_id", member.user_id)
-        .neq("role", "owner");
+      const { error: updateError } = await updateSetMemberDirect({
+        setId: phraseSet.id,
+        userId: member.user_id,
+        role: nextMember.role,
+        canContribute: nextMember.can_contribute,
+        canEditPhrases: nextMember.can_edit_phrases,
+        canEditSet: nextMember.can_edit_set,
+      });
 
       if (updateError) {
         console.error(updateError.message);
@@ -133,10 +136,7 @@ function PhraseSetMembersPanel({
   }
 
   async function handleRemoveMember(member) {
-    const { data, error } = await supabase.rpc("remove_set_member", {
-      p_set_id: phraseSet.id,
-      p_user_id: member.user_id,
-    });
+    const { data, error } = await removeSetMember(phraseSet.id, member.user_id);
 
     if (error || data !== "ok") {
       console.error(error?.message ?? data);
@@ -151,9 +151,7 @@ function PhraseSetMembersPanel({
   }
 
   async function handleLeaveSet() {
-    const { data, error } = await supabase.rpc("leave_set_member", {
-      p_set_id: phraseSet.id,
-    });
+    const { data, error } = await leaveSetMember(phraseSet.id);
 
     if (error || data !== "ok") {
       console.error(error?.message ?? data);
@@ -168,11 +166,7 @@ function PhraseSetMembersPanel({
     if (!phraseSet?.id) return;
 
     setStatus("busy");
-    const { data: memberships, error } = await supabase
-      .from("set_members")
-      .select("user_id, role, can_contribute, can_edit_phrases, can_edit_set")
-      .eq("set_id", phraseSet.id)
-      .order("role", { ascending: false });
+    const { data: memberships, error } = await getSetMembers(phraseSet.id);
 
     if (error) {
       setStatus("error");
@@ -181,10 +175,7 @@ function PhraseSetMembersPanel({
 
     const userIds = memberships.map((membership) => membership.user_id);
     const { data: profiles } = userIds.length
-      ? await supabase
-          .from("user_profiles")
-          .select("user_id, display_name, avatar_path, email")
-          .in("user_id", userIds)
+      ? await getUserProfiles(userIds)
       : { data: [] };
     const profileByUserId = new Map(
       (profiles ?? []).map((profile) => [profile.user_id, profile])
@@ -355,9 +346,7 @@ function InviteMemberDialog({ phraseSet, onClose, onChanged }) {
     setError("");
     setHasSearched(true);
 
-    const { data, error } = await supabase.rpc("search_user_profiles", {
-      p_query: trimmedQuery,
-    });
+    const { data, error } = await searchUserProfiles(trimmedQuery);
 
     if (error) {
       setStatus("error");
@@ -389,10 +378,7 @@ function InviteMemberDialog({ phraseSet, onClose, onChanged }) {
     setStatus("busy");
     setError("");
 
-    const { data, error } = await supabase.rpc("invite_set_member", {
-      p_set_id: phraseSet.id,
-      p_user_id: selectedUserId,
-    });
+    const { data, error } = await inviteSetMember(phraseSet.id, selectedUserId);
 
     if (error || data !== "ok") {
       setStatus("error");

@@ -1,7 +1,7 @@
 import React from "react";
 import styled from "styled-components";
 import { FONT_FAMILY, FONT_SIZE } from "../../constants";
-import supabase from "../../supabaseClient";
+import { resolveVocabularyChangeRequest } from "../../services/vocabularySets";
 import { AppMessageItem } from "../AppMessages/AppMessages";
 import { useAppMessages } from "../AppMessages/AppMessagesContext";
 import Message from "../Message/Message";
@@ -32,12 +32,9 @@ function MessagesPage() {
 
     setResolvingRequestId(requestId);
 
-    const { data, error } = await supabase.rpc(
-      "resolve_vocabulary_change_request",
-      {
-        p_request_id: requestId,
-        p_resolution: resolution,
-      }
+    const { data, error } = await resolveVocabularyChangeRequest(
+      requestId,
+      resolution
     );
 
     setResolvingRequestId(null);

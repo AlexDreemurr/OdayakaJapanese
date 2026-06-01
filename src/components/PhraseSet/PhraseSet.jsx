@@ -1,6 +1,12 @@
 import React, { useState, useEffect, useMemo } from "react";
 import styled from "styled-components";
-import supabase from "../../supabaseClient";
+import { getUser } from "../../services/auth";
+import { getVocabularySet } from "../../services/vocabularySets";
+import {
+  getWordsBySetId,
+  getUserMembership,
+  getPracticeByVocabularyIds,
+} from "../../services/words";
 import Message from "../Message/Message";
 import { HashLoader } from "react-spinners";
 import { FONT_FAMILY, QUERIES } from "../../constants";
@@ -52,12 +58,8 @@ function PhraseSet({ phraseSetId }) {
       setError(null);
 
       const [setResult, phrasesResult] = await Promise.all([
-        supabase
-          .from("vocabulary_sets")
-          .select("*")
-          .eq("id", phraseSetId)
-          .single(),
-        supabase.from("vocabulary").select("*").eq("set_id", phraseSetId),
+        getVocabularySet(phraseSetId),
+        getWordsBySetId(phraseSetId),
       ]);
 
       if (setResult.error || setResult.data === null) {
@@ -67,18 +69,14 @@ function PhraseSet({ phraseSetId }) {
       } else {
         const {
           data: { user },
-        } = await supabase.auth.getUser();
+        } = await getUser();
         const phraseRows = phrasesResult.data ?? [];
         let practiceByVocabularyId = new Map();
         let nextCanEditPhrases = false;
 
         if (user) {
-          const { data: membership, error: membershipError } = await supabase
-            .from("set_members")
-            .select("role, can_edit_phrases")
-            .eq("user_id", user.id)
-            .eq("set_id", phraseSetId)
-            .maybeSingle();
+          const { data: membership, error: membershipError } =
+            await getUserMembership(user.id, phraseSetId);
 
           if (!membershipError && membership) {
             nextCanEditPhrases =
@@ -90,11 +88,8 @@ function PhraseSet({ phraseSetId }) {
 
           if (phraseRows.length > 0) {
             const phraseIds = phraseRows.map((phrase) => phrase.id);
-            const { data: practiceRows, error: practiceError } = await supabase
-              .from("vocab_practice")
-              .select("vocabulary_id, correct_counts")
-              .eq("user_id", user.id)
-              .in("vocabulary_id", phraseIds);
+            const { data: practiceRows, error: practiceError } =
+              await getPracticeByVocabularyIds(user.id, phraseIds);
 
             if (!practiceError) {
               practiceByVocabularyId = new Map(

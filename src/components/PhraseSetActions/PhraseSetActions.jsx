@@ -1,6 +1,12 @@
 ﻿import React from "react";
 import styled from "styled-components";
-import supabase from "../../supabaseClient";
+import { getUser } from "../../services/auth";
+import {
+  createVocabularySet,
+  joinVocabularySet,
+  deleteVocabularySet,
+  updateVocabularySet,
+} from "../../services/vocabularySets";
 import { FONT_FAMILY, FONT_SIZE } from "../../constants";
 import BusyMessage from "../BusyMessage/BusyMessage";
 import AlertDialog from "../AlertDialog/AlertDialog";
@@ -53,7 +59,7 @@ function AddPhraseSetDialog({ onChanged }) {
 
     const {
       data: { user },
-    } = await supabase.auth.getUser();
+    } = await getUser();
 
     if (!user) {
       setStatus("error");
@@ -61,14 +67,13 @@ function AddPhraseSetDialog({ onChanged }) {
       return;
     }
 
-    const { error } = await supabase.rpc("create_vocabulary_set", {
-      p_name: name.trim(),
-      p_description: description.trim() || null,
-      p_status: openStatus,
-      p_creator: creator.trim() || null,
-      p_privacy: privacy,
-      p_password: null,
-      p_user_id: user?.id ?? null,
+    const { error } = await createVocabularySet({
+      name: name.trim(),
+      description: description.trim() || null,
+      status: openStatus,
+      creator: creator.trim() || null,
+      privacy,
+      userId: user?.id ?? null,
     });
 
     if (error) {
@@ -224,10 +229,7 @@ function JoinPhraseSetDialog({ phraseSet, trigger, onChanged, onClose }) {
     setMessage("");
     setMessageType("info");
 
-    const { data, error } = await supabase.rpc("join_vocabulary_set", {
-      p_set_id: Number(phraseSet.id),
-      p_password: null,
-    });
+    const { data, error } = await joinVocabularySet(phraseSet.id);
 
     if (error) {
       setStatus("error");
@@ -338,10 +340,7 @@ function DeletePhraseSetDialog({
 
     const selectedIds = selectedPhraseSets.map((phraseSet) => phraseSet.id);
     for (const selectedId of selectedIds) {
-      const { data, error } = await supabase.rpc("delete_vocabulary_set", {
-        p_set_id: selectedId,
-        p_password: null,
-      });
+      const { data, error } = await deleteVocabularySet(selectedId);
 
       if (error) {
         setStatus("error");
@@ -521,11 +520,11 @@ function EditPhraseSetDialog({ selectedPhraseSet, currentUserId, onChanged }) {
     setErrorMsg("");
 
     if (hasSetChanges) {
-      const { error } = await supabase
-        .from("vocabulary_sets")
-        .update(changes)
-        .eq("id", selectedPhraseSet.id)
-        .eq("user_id", currentUserId);
+      const { error } = await updateVocabularySet(
+        selectedPhraseSet.id,
+        changes,
+        currentUserId
+      );
 
       if (error) {
         setStatus("error");

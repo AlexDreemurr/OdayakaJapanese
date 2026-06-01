@@ -1,7 +1,8 @@
 import React from "react";
 import styled, { css } from "styled-components";
-import supabase from "../../supabaseClient";
-import { deepseekAPI, normalizeSentences } from "../../utility";
+import { callDeepseek } from "../../services/ai";
+import { checkWordExists, findReusableVocab, insertWord } from "../../services/words";
+import { normalizeSentences } from "../../utility";
 import Message from "../Message/Message";
 import BusyMessage from "../BusyMessage/BusyMessage";
 import usePhraseSets from "../../hooks/usePhraseSets";
@@ -48,13 +49,11 @@ function ContributeForm({
     const normalizedNotation = notation.trim();
     const normalizedContributor = contributor.trim();
 
-    /* 先查重， 如果已经存在则不添加！ */
-    const { data: existing, error: queryError } = await supabase
-      .from("vocabulary")
-      .select("word")
-      .eq("word", normalizedWord)
-      .eq("set_id", selectedPhraseSet) // 只在当前词汇集内查重，不同词汇集里可以有同名单词。
-      .maybeSingle();
+    /* 先查重，如果已经存在则不添加！只在当前词汇集内查重，不同词汇集里可以有同名单词。 */
+    const { data: existing, error: queryError } = await checkWordExists(
+      normalizedWord,
+      selectedPhraseSet
+    );
 
     if (queryError) {
       setStatus("error");
@@ -70,12 +69,8 @@ function ContributeForm({
     }
 
     if (normalizedNotation === "") {
-      const { data: reusableVocab, error: reusableQueryError } = await supabase
-        .from("vocabulary")
-        .select("*")
-        .eq("word", normalizedWord)
-        .limit(1)
-        .maybeSingle();
+      const { data: reusableVocab, error: reusableQueryError } =
+        await findReusableVocab(normalizedWord);
 
       if (reusableQueryError) {
         setStatus("error");
@@ -94,7 +89,7 @@ function ContributeForm({
         delete copiedVocab.create_at;
         delete copiedVocab.created_at;
 
-        const { error } = await supabase.from("vocabulary").insert(copiedVocab);
+        const { error } = await insertWord(copiedVocab);
 
         if (error) {
           setStatus("error");
@@ -112,7 +107,7 @@ function ContributeForm({
       }
     }
 
-    const result = await deepseekAPI(
+    const result = await callDeepseek(
       `单词：${word}，贡献者：${contributor}，备注：${notation}，set_id：${selectedPhraseSet}`,
       `你是一个日语词典助手。用户会给你一个日语单词、一个贡献者名字（可选）、备注（可选）和set_id。
   首先判断输入是否是一个真实存在的日语单词。如果不是，只返回：{"valid": false}
@@ -169,7 +164,7 @@ function ContributeForm({
       vocabData.reading
     );
 
-    const { error } = await supabase.from("vocabulary").insert(vocabData);
+    const { error } = await insertWord(vocabData);
     if (error) {
       setStatus("error");
       setErrorMsg(error.message);
@@ -181,7 +176,6 @@ function ContributeForm({
       console.log("插入成功");
       onSuccess?.();
     }
-    // const {error} = await supabase.from('vocabulary').insert
   }
 
   function handleSubmit(event) {

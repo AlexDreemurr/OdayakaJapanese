@@ -1,4 +1,4 @@
-﻿import supabase from "../supabaseClient";
+﻿import { getAvatarUrl } from "../services/storage";
 
 export const FALLBACK_AVATAR_VALUE = "__fallback_avatar__";
 export const DEFAULT_SELECTABLE_AVATAR_VALUE = FALLBACK_AVATAR_VALUE;
@@ -82,10 +82,4 @@ export const AVATAR_PATHS = AVATAR_SECTIONS.flatMap((section) =>
   section.avatars.map((avatar) => avatar.path).filter(Boolean)
 );
 
-export function getAvatarUrl(path) {
-  if (!path) {
-    return undefined;
-  }
-
-  return supabase.storage.from("avatar_pics").getPublicUrl(path).data.publicUrl;
-}
+export { getAvatarUrl };

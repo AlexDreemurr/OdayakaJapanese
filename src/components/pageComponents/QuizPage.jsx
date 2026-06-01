@@ -1,14 +1,10 @@
-import {
-  getNewQuizObject,
-  fetchSharedDictQuiz,
-  updateVocabPractice,
-} from "../../utility";
+import { getNewQuizObject } from "../../utility";
+import { fetchSharedDictQuiz, updateVocabPractice } from "../../services/quiz";
 import SingleSelect from "../SingleSelect/SingleSelect";
 import QuizAnswer from "../QuizAnswer/QuizAnswer";
 import Papa from "papaparse";
 import React from "react";
 import styled from "styled-components";
-import supabase from "../../supabaseClient";
 import { HashLoader } from "react-spinners";
 import { KatakanaRateContext } from "../../KatakanaRateContext";
 import Message from "../Message/Message";
@@ -37,7 +33,7 @@ function QuizPage({
   const [status, setStatus] = React.useState("free");
 
   const loadSharedDictQuiz = React.useCallback(() => {
-    fetchSharedDictQuiz(supabase, katakanaRate).then((nextQuizObject) => {
+    fetchSharedDictQuiz(katakanaRate).then((nextQuizObject) => {
       if (!nextQuizObject) {
         setStatus("empty");
         return;
@@ -110,11 +106,7 @@ function QuizPage({
     );
 
     if (source === "sharedDict") {
-      updateVocabPractice(
-        supabase,
-        quizObject,
-        userAnswer === quizObject.answer
-      );
+      updateVocabPractice(quizObject, userAnswer === quizObject.answer);
     }
   }, [isChecking]);
 
