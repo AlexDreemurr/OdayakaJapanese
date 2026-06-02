@@ -19,6 +19,9 @@ export default function Header() {
         <LinkWrapper fontSize={FONT_SIZE.default} to="/phraseSetList">
           词汇集
         </LinkWrapper>
+        <LinkWrapper fontSize={FONT_SIZE.default} to="/grammarSetList">
+          语法集
+        </LinkWrapper>
         <LinkWrapper fontSize={FONT_SIZE.default} to="/messages">
           消息
         </LinkWrapper>

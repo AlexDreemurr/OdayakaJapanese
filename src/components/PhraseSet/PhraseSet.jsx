@@ -9,14 +9,13 @@ import {
 } from "../../services/words";
 import Message from "../Message/Message";
 import { HashLoader } from "react-spinners";
-import { FONT_FAMILY, QUERIES } from "../../constants";
-import Icon from "../Icon/Icon";
+import { QUERIES } from "../../constants";
 import UnstyledButton from "../UnstyledButton/UnstyledButton";
 import PhraseDialog, { getCompletedSentenceCount } from "../PhraseDialog/PhraseDialog";
 import { useNavigate } from "react-router-dom";
 import { FormModal } from "../FormModal/FormModal";
 import ContributeForm from "../ContributeForm/ContributeForm";
-import IconActionDropdown from "../IconActionDropdown/IconActionDropdown";
+import { SetHeader, HeaderIcon } from "../SetPageShared/SetPageShared";
 
 function toHiraganaText(text) {
   return (text || "")
@@ -49,6 +48,8 @@ function PhraseSet({ phraseSetId }) {
   const [starMode, setStarMode] = useState("hidden");
   const [showContributeForm, setShowContributeForm] = useState(false);
   const [canEditPhrases, setCanEditPhrases] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const fetchData = React.useCallback(
     async ({ showLoading = true } = {}) => {
@@ -155,6 +156,13 @@ function PhraseSet({ phraseSetId }) {
     return sortOrder === "asc" ? comparison : -comparison;
   }
 
+  function handleSearchToggle() {
+    setIsSearching((prev) => {
+      if (prev) setSearchQuery("");
+      return !prev;
+    });
+  }
+
   // ← 新增：派生排序列表，不污染原始数据
   const displayedPhrases = useMemo(() => {
     const isStarSorting = starMode === "starsDesc" || starMode === "starsAsc";
@@ -182,10 +190,21 @@ function PhraseSet({ phraseSetId }) {
       .map(({ phrase }) => phrase);
   }, [phrases, sortOrder, starMode]);
 
+  const visiblePhrases = useMemo(() => {
+    if (!searchQuery.trim()) return displayedPhrases;
+    const q = searchQuery.trim();
+    return displayedPhrases.filter(
+      (p) =>
+        (p.word || "").includes(q) ||
+        (p.reading || "").includes(q) ||
+        (p.meaning || "").includes(q)
+    );
+  }, [displayedPhrases, searchQuery]);
+
   const groupedPhrases = useMemo(() => {
     const groups = new Map();
 
-    displayedPhrases.forEach((phrase) => {
+    visiblePhrases.forEach((phrase) => {
       const initial = (phrase.reading || phrase.word || "").trim().charAt(0);
       const key = initial ? toHiraganaInitial(initial) : "#";
 
@@ -197,7 +216,7 @@ function PhraseSet({ phraseSetId }) {
     });
 
     return Array.from(groups, ([initial, items]) => ({ initial, items }));
-  }, [displayedPhrases]);
+  }, [visiblePhrases]);
 
   if (loading)
     return (
@@ -274,39 +293,37 @@ function PhraseSet({ phraseSetId }) {
 
   return (
     <Wrapper>
-      <ButtonGroup>
-        <UnstyledButton onClick={() => navigate("/phraseSetList")}>
-          <IconWrapper id="arrowLeft" size="1.3rem" color="var(--gray15)" />
-        </UnstyledButton>
-        <TitleWrapper>{setInfo.name}</TitleWrapper>
-        <DesktopActions>
-          <UnstyledButton onClick={() => setShowContributeForm(true)}>
-            <IconWrapper id="plus" size="1.3rem" color="var(--gray15)" />
-          </UnstyledButton>
-          <UnstyledButton onClick={handleStarModeToggle}>
-            <IconWrapper id={starIconId} size="1.3rem" color="var(--gray15)" />
-          </UnstyledButton>
-          <UnstyledButton onClick={handleSortToggle}>
-            <IconWrapper
-              id={
-                sortOrder === "default"
-                  ? "ArrowUpDown"
-                  : sortOrder === "asc"
-                  ? "ArrowDownAZ"
-                  : "ArrowDownZA"
-              }
-              size="1.3rem"
-              color="var(--gray15)"
-            />
-          </UnstyledButton>
-          <UnstyledButton onClick={() => setShowKana((prev) => !prev)}>
-            <IconWrapper id="Languages" size="1.3rem" color="var(--gray15)" />
-          </UnstyledButton>
-        </DesktopActions>
-        <MobileActions>
-          <IconActionDropdown actions={actionItems} />
-        </MobileActions>
-      </ButtonGroup>
+      <SetHeader
+        title={setInfo.name}
+        onBack={() => navigate("/phraseSetList")}
+        isSearching={isSearching}
+        searchValue={searchQuery}
+        searchPlaceholder="搜索词汇..."
+        onSearchToggle={handleSearchToggle}
+        onSearchChange={(e) => setSearchQuery(e.target.value)}
+        desktopActions={
+          <>
+            <UnstyledButton onClick={() => setShowContributeForm(true)}>
+              <HeaderIcon id="plus" size="1.3rem" color="var(--gray15)" />
+            </UnstyledButton>
+            <UnstyledButton onClick={handleStarModeToggle}>
+              <HeaderIcon id={starIconId} size="1.3rem" color="var(--gray15)" />
+            </UnstyledButton>
+            <UnstyledButton onClick={handleSortToggle}>
+              <HeaderIcon
+                id={sortOrder === "default" ? "ArrowUpDown" : sortOrder === "asc" ? "ArrowDownAZ" : "ArrowDownZA"}
+                size="1.3rem"
+                color="var(--gray15)"
+              />
+            </UnstyledButton>
+            <UnstyledButton onClick={() => setShowKana((prev) => !prev)}>
+              <HeaderIcon id="Languages" size="1.3rem" color="var(--gray15)" />
+            </UnstyledButton>
+          </>
+        }
+        mobileActions={actionItems}
+      />
+
 
       {showContributeForm && (
         <FormModal
@@ -330,7 +347,7 @@ function PhraseSet({ phraseSetId }) {
       {/* 当排序为默认时显示的ui */}
       <DefaultWrapper>
         {sortOrder === "default" &&
-          displayedPhrases.map((phrase) => (
+          visiblePhrases.map((phrase) => (
             <PhraseDialog
               key={phrase.id}
               phrase={phrase}
@@ -387,34 +404,6 @@ const LoadingWrapper = styled.div`
   justify-content: center;
   align-items: center;
 `;
-const IconWrapper = styled(Icon)`
-  padding: 0.8rem;
-`;
-const ButtonGroup = styled.div`
-  display: flex;
-  justify-content: flex-start;
-  align-items: center;
-  /* padding: 0 2rem; */
-  margin-left: 1rem;
-  margin-right: 1rem;
-  margin-bottom: 0rem;
-  background-color: var(--gray85);
-  border-bottom: 1px var(--gray60) solid;
-`;
-const DesktopActions = styled.div`
-  display: none;
-
-  @media ${QUERIES.tabletAndUp} {
-    display: flex;
-  }
-`;
-const MobileActions = styled.div`
-  display: flex;
-
-  @media ${QUERIES.tabletAndUp} {
-    display: none;
-  }
-`;
 const DefaultWrapper = styled.div``;
 const PhraseGroups = styled.div`
   display: flex;
@@ -439,14 +428,5 @@ const InitialLetter = styled.h3`
   &:first-of-type {
     margin-top: 0.5rem;
   }
-`;
-const TitleWrapper = styled.p`
-  margin-right: auto;
-  font-size: 1rem;
-  margin-left: 0.5rem;
-  font-weight: 500;
-  color: var(--gray15);
-  overflow: auto;
-  white-space: nowrap;
 `;
 export default PhraseSet;

@@ -1,5 +1,10 @@
 import { getNewQuizObject } from "../../utility";
-import { fetchSharedDictQuiz, updateVocabPractice } from "../../services/quiz";
+import {
+  fetchSharedDictQuiz,
+  updateVocabPractice,
+  fetchGrammarSetQuiz,
+  updateGrammarPractice,
+} from "../../services/quiz";
 import SingleSelect from "../SingleSelect/SingleSelect";
 import QuizAnswer from "../QuizAnswer/QuizAnswer";
 import Papa from "papaparse";
@@ -34,23 +39,25 @@ function QuizPage({
 
   const loadSharedDictQuiz = React.useCallback(() => {
     fetchSharedDictQuiz(katakanaRate).then((nextQuizObject) => {
-      if (!nextQuizObject) {
-        setStatus("empty");
-        return;
-      }
-
+      if (!nextQuizObject) { setStatus("empty"); return; }
       setQuizObject(nextQuizObject);
       setStatus("free");
     });
   }, [katakanaRate]);
 
+  const loadGrammarSetQuiz = React.useCallback(() => {
+    fetchGrammarSetQuiz().then((nextQuizObject) => {
+      if (!nextQuizObject) { setStatus("empty"); return; }
+      setQuizObject(nextQuizObject);
+      setStatus("free");
+    });
+  }, []);
+
   React.useEffect(() => {
-    return () => {
-      hideAnswerToast();
-    };
+    return () => { hideAnswerToast(); };
   }, [hideAnswerToast]);
 
-  /* 初始加载csv */
+  /* 初始加载 */
   React.useEffect(() => {
     setStatus("busy");
     if (source === "grammar") {
@@ -60,38 +67,37 @@ function QuizPage({
         .then((res) => res.text())
         .then((text) => {
           const { data } = Papa.parse(text, {
-            header: true, // 第一行作为 key
+            header: true,
             skipEmptyLines: true,
-            dynamicTyping: true, // 数字自动转 number 类型
+            dynamicTyping: true,
           });
           setGrammars(data);
-
-          // 初次加载题目
-          const newQuizObject = getNewQuizObject(data);
-          setQuizObject(newQuizObject);
+          setQuizObject(getNewQuizObject(data));
           setStatus("free");
         });
+    } else if (source === "grammarSet") {
+      loadGrammarSetQuiz();
     } else {
       loadSharedDictQuiz();
     }
-  }, [loadSharedDictQuiz, source]);
+  }, [loadSharedDictQuiz, loadGrammarSetQuiz, source]);
 
-  /* 更新下一道题目 */
+  /* 下一道题目 */
   React.useEffect(() => {
-    if (curQuizNum == 1) {
-      return;
-    }
+    if (curQuizNum == 1) return;
 
     if (source === "grammar") {
-      const newQuizObject = getNewQuizObject(grammars);
-      setQuizObject(newQuizObject);
+      setQuizObject(getNewQuizObject(grammars));
       setUserAnswer(null);
       setStatus("free");
+    } else if (source === "grammarSet") {
+      loadGrammarSetQuiz();
+      setUserAnswer(null);
     } else {
       loadSharedDictQuiz();
       setUserAnswer(null);
     }
-  }, [curQuizNum, grammars, loadSharedDictQuiz, source]);
+  }, [curQuizNum, grammars, loadSharedDictQuiz, loadGrammarSetQuiz, source]);
 
   /* 用户提交本题后，将该题储存至localStorage */
   React.useEffect(() => {
@@ -108,14 +114,20 @@ function QuizPage({
     if (source === "sharedDict") {
       updateVocabPractice(quizObject, userAnswer === quizObject.answer);
     }
+    if (source === "grammarSet") {
+      updateGrammarPractice(quizObject, userAnswer === quizObject.answer);
+    }
   }, [isChecking]);
+
+  const emptyMessage =
+    source === "grammarSet"
+      ? "当前没有可用的语法题库，请先加入一个语法集。"
+      : "当前没有可用的共享单词题库，请先加入一个词汇集。";
 
   return (
     <Main>
       {status === "busy" && <HashLoader />}
-      {status === "empty" && (
-        <Message>当前没有可用的共享单词题库，请先加入一个词汇集。</Message>
-      )}
+      {status === "empty" && <Message>{emptyMessage}</Message>}
       {status === "free" && !isChecking && (
         <SingleSelect
           source={quizObject}

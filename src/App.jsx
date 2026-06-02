@@ -7,6 +7,7 @@ import QuizPage from "./components/pageComponents/QuizPage";
 import StartPage from "./components/pageComponents/StartPage";
 import MessagesPage from "./components/pageComponents/MessagesPage";
 import PhraseSetPage from "./components/pageComponents/PhraseSetPage";
+import GrammarSetPage from "./components/pageComponents/GrammarSetPage";
 import SettingsPage from "./components/pageComponents/SettingsPage";
 import DebugPage from "./components/pageComponents/DebugPage";
 
@@ -123,6 +124,18 @@ function App() {
                   />
                 }
               />
+              <Route
+                path="/quiz/grammarSet"
+                element={
+                  <QuizPage
+                    source="grammarSet"
+                    historyQuizes={historyQuizes}
+                    setHistoryQuizes={setHistoryQuizes}
+                    showAnswerToast={showAnswerToast}
+                    hideAnswerToast={hideAnswerToast}
+                  />
+                }
+              />
               <Route path="/messages" element={<MessagesPage />} />
               <Route
                 path="/history"
@@ -130,6 +143,8 @@ function App() {
               />
               <Route path="/phraseSetList" element={<PhraseSetPage />} />
               <Route path="/phraseSet/:phraseSetId" element={<PhraseSetPage />} />
+              <Route path="/grammarSetList" element={<GrammarSetPage />} />
+              <Route path="/grammarSet/:grammarSetId" element={<GrammarSetPage />} />
               <Route
                 path="/settings"
                 element={<SettingsPage resetAnswerToast={resetAnswerToast} />}

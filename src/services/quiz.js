@@ -1,7 +1,7 @@
 /**
  * quiz.js
- * 共享词典测验的生成逻辑与练习记录更新。
- * 依赖：supabaseClient.js、utility.jsx（纯工具函数）、sharedDictSettings.js
+ * 共享词典测验 + 语法集测验的生成逻辑与练习记录更新。
+ * 依赖：supabaseClient.js、utility.jsx（纯工具函数）、sharedDictSettings.js、grammarSettings.js
  */
 
 import supabase from "../supabaseClient";
@@ -15,6 +15,10 @@ import {
   getStoredSharedDictSetIds,
   storeSharedDictSetIds,
 } from "../sharedDictSettings";
+import {
+  getStoredGrammarSetIds,
+  storeGrammarSetIds,
+} from "../grammarSettings";
 
 const DEFAULT_PHRASE_SET_ID = 1;
 
@@ -377,4 +381,239 @@ export async function updateVocabPractice(quizObject, isCorrect) {
   if (upsertError) {
     console.error(upsertError.message);
   }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 语法集测验
+// ══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * 确定当前用户有权访问的语法集 ID 列表，并同步到 localStorage。
+ */
+async function getSafeGrammarSetIds(user) {
+  const storedIds = getStoredGrammarSetIds();
+
+  if (!user) {
+    return storedIds ?? [];
+  }
+
+  const { data: memberships, error } = await supabase
+    .from("grammar_set_members")
+    .select("set_id")
+    .eq("user_id", user.id);
+
+  if (error) {
+    console.error(error.message);
+    return storedIds ?? [];
+  }
+
+  const memberSetIds = memberships.map((m) => m.set_id);
+  const candidateSetIds =
+    storedIds === null
+      ? memberSetIds
+      : storedIds.filter((id) => memberSetIds.includes(id));
+
+  if (candidateSetIds.length > 0) {
+    storeGrammarSetIds(candidateSetIds);
+    return candidateSetIds;
+  }
+
+  if (memberSetIds.length > 0) {
+    storeGrammarSetIds([memberSetIds[0]]);
+    return [memberSetIds[0]];
+  }
+
+  return [];
+}
+
+/** 在指定语法集中随机抽取一条语法条目。 */
+async function getRandomGrammar(grammarSetIds) {
+  const { count } = await applyPhraseSetFilter(
+    supabase.from("grammar_items").select("*", { count: "exact", head: true }),
+    grammarSetIds
+  );
+
+  if (!count) return null;
+
+  const offset = Math.floor(Math.random() * count);
+  const { data, error } = await applyPhraseSetFilter(
+    supabase.from("grammar_items").select("*"),
+    grammarSetIds
+  )
+    .range(offset, offset)
+    .single();
+
+  if (error) { console.error(error.message); return null; }
+  return data;
+}
+
+/** 优先选取练习次数最少的语法条目（已登录时使用）。 */
+async function getPracticeGrammar(userId, grammarSetIds) {
+  const { data: items, error } = await applyPhraseSetFilter(
+    supabase.from("grammar_items").select("*"),
+    grammarSetIds
+  );
+
+  if (error || !items?.length) {
+    console.error(error?.message);
+    return getRandomGrammar(grammarSetIds);
+  }
+
+  const grammarIds = items.map((item) => item.id);
+  const { data: practiceRows, error: practiceError } = await supabase
+    .from("grammar_practice")
+    .select("grammar_id, correct_counts, attempt_counts")
+    .eq("user_id", userId)
+    .in("grammar_id", grammarIds);
+
+  if (practiceError) {
+    console.error(practiceError.message);
+    return items[Math.floor(Math.random() * items.length)];
+  }
+
+  const practiceById = new Map(
+    (practiceRows ?? []).map((row) => [row.grammar_id, row])
+  );
+  let lowestTotal = Infinity;
+  const candidates = [];
+
+  for (const item of items) {
+    const total = getPracticeCountTotal(practiceById.get(item.id)?.attempt_counts);
+    if (total < lowestTotal) {
+      lowestTotal = total;
+      candidates.length = 0;
+      candidates.push(item);
+    } else if (total === lowestTotal) {
+      candidates.push(item);
+    }
+  }
+
+  const selected = candidates[Math.floor(Math.random() * candidates.length)];
+  return {
+    ...selected,
+    practiceCorrectCounts: normalizePracticeCounts(practiceById.get(selected.id)?.correct_counts),
+    practiceAttemptCounts: normalizePracticeCounts(practiceById.get(selected.id)?.attempt_counts),
+  };
+}
+
+/** 随机抽取若干语法形式作为干扰选项。 */
+async function getRandomGrammarForms(count, avoidForm, grammarSetIds) {
+  const { count: total } = await applyPhraseSetFilter(
+    supabase.from("grammar_items").select("*", { count: "exact", head: true }),
+    grammarSetIds
+  );
+  if (!total) return [];
+
+  const results = [];
+  const used = new Set([avoidForm]);
+  let attempts = 0;
+
+  while (results.length < count && attempts < count * 5) {
+    attempts++;
+    const offset = Math.floor(Math.random() * total);
+    const { data } = await applyPhraseSetFilter(
+      supabase.from("grammar_items").select("form"),
+      grammarSetIds
+    )
+      .range(offset, offset)
+      .single();
+
+    if (data && !used.has(data.form)) {
+      used.add(data.form);
+      results.push(data.form);
+    }
+  }
+  return results;
+}
+
+/**
+ * 从语法集生成一道随机测验题目。
+ * 已登录用户会优先选取练习次数最少的语法条目。
+ * @returns {Promise<object|null>} 题目对象，无可用数据时返回 null
+ */
+export async function fetchGrammarSetQuiz() {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const grammarSetIds = await getSafeGrammarSetIds(user);
+  if (grammarSetIds.length === 0) return null;
+
+  const grammar = user
+    ? await getPracticeGrammar(user.id, grammarSetIds)
+    : await getRandomGrammar(grammarSetIds);
+
+  if (!grammar) return null;
+
+  const sentences = Array.isArray(grammar.sentences) ? grammar.sentences : [];
+  if (sentences.length === 0) return null;
+
+  const maxIndex = sentences.length - 1;
+  const sentenceIndex = user
+    ? Math.min(getLeastPracticedSentenceIndex(grammar.practiceAttemptCounts), maxIndex)
+    : Math.floor(Math.random() * sentences.length);
+
+  const rawSentence = sentences[sentenceIndex];
+  const sentenceText = typeof rawSentence === "string" ? rawSentence : rawSentence?.text ?? "";
+  const [question, answer] = splitSentence(sentenceText);
+  const correctChoice = extractBrackets(sentenceText) ?? grammar.form;
+  const distractors = await getRandomGrammarForms(3, grammar.form, grammarSetIds);
+  const choices = shuffle([correctChoice, ...distractors]);
+
+  return {
+    id: Math.random(),
+    rawSentence: sentenceText,
+    question,
+    choices,
+    choiceLabels: choices,
+    answer,
+    form: grammar.form,
+    meaning: grammar.meaning,
+    grammarId: grammar.id,
+    sentenceIndex,
+  };
+}
+
+/**
+ * 将语法测验答题结果写入 grammar_practice 表。
+ * @param {object} quizObject - fetchGrammarSetQuiz 返回的题目对象
+ * @param {boolean} isCorrect
+ */
+export async function updateGrammarPractice(quizObject, isCorrect) {
+  if (!quizObject?.grammarId || quizObject.sentenceIndex === undefined) return;
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return;
+
+  const sentenceIndex = Number(quizObject.sentenceIndex);
+  if (!Number.isInteger(sentenceIndex) || sentenceIndex < 0 || sentenceIndex > 3) return;
+
+  const { data, error } = await supabase
+    .from("grammar_practice")
+    .select("correct_counts, attempt_counts")
+    .eq("user_id", user.id)
+    .eq("grammar_id", quizObject.grammarId)
+    .maybeSingle();
+
+  if (error) { console.error(error.message); return; }
+
+  const correctCounts = normalizePracticeCounts(data?.correct_counts);
+  const attemptCounts = normalizePracticeCounts(data?.attempt_counts);
+  attemptCounts[sentenceIndex] += 1;
+  if (isCorrect) correctCounts[sentenceIndex] += 1;
+
+  const { error: upsertError } = await supabase.from("grammar_practice").upsert(
+    {
+      user_id: user.id,
+      grammar_id: quizObject.grammarId,
+      correct_counts: correctCounts,
+      attempt_counts: attemptCounts,
+    },
+    { onConflict: "user_id,grammar_id" }
+  );
+
+  if (upsertError) console.error(upsertError.message);
 }

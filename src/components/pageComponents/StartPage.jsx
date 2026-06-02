@@ -14,11 +14,11 @@ function StartPage() {
         <Img src={`${import.meta.env.BASE_URL}study_nihongo.png`} />
       </ImgWrapper>
       <LinkGroup>
-        <LinkWrapper to="/quiz/grammar" style={{ textDecoration: "none" }}>
-          <Button as="div">原语法练习</Button>
+        <LinkWrapper to="/quiz/grammarSet" style={{ textDecoration: "none" }}>
+          <Button as="div">语法练习</Button>
         </LinkWrapper>
         <LinkWrapper to="/quiz/sharedDict" style={{ textDecoration: "none" }}>
-          <Button as="div">共享词汇练习</Button>
+          <Button as="div">词汇练习</Button>
         </LinkWrapper>
       </LinkGroup>
       {isLocalLoopback && (

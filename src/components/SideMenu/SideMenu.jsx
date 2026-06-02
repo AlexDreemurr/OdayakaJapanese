@@ -31,6 +31,11 @@ function SideMenu() {
               </LinkWrapper>
             </Dialog.Close>
             <Dialog.Close asChild>
+              <LinkWrapper fontSize={FONT_SIZE.default} to="/grammarSetList">
+                语法集
+              </LinkWrapper>
+            </Dialog.Close>
+            <Dialog.Close asChild>
               <LinkWrapper fontSize={FONT_SIZE.default} to="/messages">
                 消息
               </LinkWrapper>

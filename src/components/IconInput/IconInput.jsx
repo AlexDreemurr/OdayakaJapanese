@@ -38,18 +38,20 @@ const IconInput = ({ label, icon, width = 250, size, ...delegated }) => {
         "--iconTop": styles.iconTop + "rem",
         "--fontSize": styles.fontSize / 16 + "rem",
         "--borderWidth": styles.borderWidth + "px",
-        "--paddingLeft": styles.paddingLeft / 16 + "rem",
+        "--paddingLeft": icon ? styles.paddingLeft / 16 + "rem" : "0px",
         "--paddingTop": styles.paddingTop + "px",
       }}
     >
       <VisuallyHidden>{label}</VisuallyHidden>
-      <IconWrapper>
-        <Icon
-          id={icon}
-          size={styles.iconSize}
-          strokeWidth={styles.borderWidth}
-        />
-      </IconWrapper>
+      {icon && (
+        <IconWrapper>
+          <Icon
+            id={icon}
+            size={styles.iconSize}
+            strokeWidth={styles.borderWidth}
+          />
+        </IconWrapper>
+      )}
       <Input {...delegated}></Input>
     </Wrapper>
   );
