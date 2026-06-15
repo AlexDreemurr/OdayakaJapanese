@@ -78,8 +78,10 @@ const Content = styled(Dialog.Content)`
   right: 0;
   width: 300px;
   padding: 1.1rem;
-  background-color: var(--gray85);
-  color: var(--gray15);
+  background-color: var(--surface);
+  color: var(--text);
+  border-left: 1px solid var(--border);
+  box-shadow: -8px 0 30px hsl(26deg 16% 15% / 0.12);
   z-index: 101;
 
   display: flex;
@@ -110,10 +112,24 @@ const MagicBox = styled.div`
 const Nav = styled.nav`
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 0.5rem;
+  align-items: stretch;
+  gap: 0.15rem;
+  margin-top: 1.5rem;
 
   font-weight: 600;
+
+  a {
+    text-decoration: none;
+    color: var(--text);
+    padding: 0.6rem 0.7rem;
+    border-radius: 0.55rem;
+    transition: background-color 120ms ease, color 120ms ease;
+
+    &:hover {
+      background-color: var(--accent-soft);
+      color: var(--accent);
+    }
+  }
 `;
 
 const Footer = styled.footer`

@@ -32,6 +32,7 @@ import {
   LoaderCircle,
   BookOpen,
   Ban,
+  ChevronRight,
 } from "lucide-react";
 
 const icons = {
@@ -70,6 +71,7 @@ const icons = {
   bookOpen: BookOpen,
   ban: Ban,
   "chevron-down": ChevronDown,
+  "chevron-right": ChevronRight,
 };
 
 const Icon = ({ id, color, size, strokeWidth, ...delegated }) => {

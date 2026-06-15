@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo } from "react";
 import styled from "styled-components";
 import { getUser } from "../../services/auth";
-import { getVocabularySet } from "../../services/vocabularySets";
+import { getVocabularySet, getMemberSetIds } from "../../services/vocabularySets";
 import {
   getWordsBySetId,
+  getWordsBySetIds,
   getUserMembership,
   getPracticeByVocabularyIds,
 } from "../../services/words";
@@ -51,12 +52,73 @@ function PhraseSet({ phraseSetId }) {
   const [isSearching, setIsSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
+  const isAll = phraseSetId === "all";
+
   const fetchData = React.useCallback(
     async ({ showLoading = true } = {}) => {
       if (showLoading) {
         setLoading(true);
       }
       setError(null);
+
+      // 「全部词汇」聚合模式：汇聚当前用户已加入的所有词汇集词条。
+      if (isAll) {
+        const {
+          data: { user },
+        } = await getUser();
+
+        if (!user) {
+          setSetInfo({ name: "全部词汇" });
+          setCanEditPhrases(false);
+          setPhrases([]);
+          if (showLoading) setLoading(false);
+          return;
+        }
+
+        const { data: memberRows, error: memberError } = await getMemberSetIds(
+          user.id
+        );
+        if (memberError) {
+          setError("fetch_error");
+          if (showLoading) setLoading(false);
+          return;
+        }
+
+        const memberSetIds = (memberRows ?? []).map((row) => row.set_id);
+        const phrasesResult = await getWordsBySetIds(memberSetIds);
+        if (phrasesResult.error) {
+          setError("fetch_error");
+          if (showLoading) setLoading(false);
+          return;
+        }
+
+        const phraseRows = phrasesResult.data ?? [];
+        let practiceByVocabularyId = new Map();
+        if (phraseRows.length > 0) {
+          const phraseIds = phraseRows.map((phrase) => phrase.id);
+          const { data: practiceRows, error: practiceError } =
+            await getPracticeByVocabularyIds(user.id, phraseIds);
+          if (!practiceError) {
+            practiceByVocabularyId = new Map(
+              (practiceRows ?? []).map((row) => [row.vocabulary_id, row])
+            );
+          } else {
+            console.error(practiceError.message);
+          }
+        }
+
+        setSetInfo({ name: "全部词汇" });
+        setCanEditPhrases(false);
+        setPhrases(
+          phraseRows.map((phrase) => ({
+            ...phrase,
+            practiceCorrectCounts:
+              practiceByVocabularyId.get(phrase.id)?.correct_counts ?? [],
+          }))
+        );
+        if (showLoading) setLoading(false);
+        return;
+      }
 
       const [setResult, phrasesResult] = await Promise.all([
         getVocabularySet(phraseSetId),
@@ -119,7 +181,7 @@ function PhraseSet({ phraseSetId }) {
         setLoading(false);
       }
     },
-    [phraseSetId]
+    [phraseSetId, isAll]
   );
 
   useEffect(() => {
@@ -257,11 +319,15 @@ function PhraseSet({ phraseSetId }) {
     sortOrder
   ];
   const actionItems = [
-    {
-      icon: "plus",
-      label: "添加词语",
-      onSelect: () => setShowContributeForm(true),
-    },
+    ...(isAll
+      ? []
+      : [
+          {
+            icon: "plus",
+            label: "添加词语",
+            onSelect: () => setShowContributeForm(true),
+          },
+        ]),
     {
       icon: starIconId,
       label:
@@ -303,9 +369,11 @@ function PhraseSet({ phraseSetId }) {
         onSearchChange={(e) => setSearchQuery(e.target.value)}
         desktopActions={
           <>
-            <UnstyledButton onClick={() => setShowContributeForm(true)}>
-              <HeaderIcon id="plus" size="1.3rem" color="var(--gray15)" />
-            </UnstyledButton>
+            {!isAll && (
+              <UnstyledButton onClick={() => setShowContributeForm(true)}>
+                <HeaderIcon id="plus" size="1.3rem" color="var(--gray15)" />
+              </UnstyledButton>
+            )}
             <UnstyledButton onClick={handleStarModeToggle}>
               <HeaderIcon id={starIconId} size="1.3rem" color="var(--gray15)" />
             </UnstyledButton>
@@ -325,7 +393,7 @@ function PhraseSet({ phraseSetId }) {
       />
 
 
-      {showContributeForm && (
+      {!isAll && showContributeForm && (
         <FormModal
           open
           onOpenChange={(open) => {

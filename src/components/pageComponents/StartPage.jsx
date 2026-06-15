@@ -2,6 +2,7 @@ import React from "react";
 import styled from "styled-components";
 import LinkWrapper from "../LinkWrapper/LinkWrapper";
 import Button from "../Button/Button";
+import { FONT_FAMILY } from "../../constants";
 
 function StartPage() {
   const isLocalLoopback = ["localhost", "127.0.0.1", "::1"].includes(
@@ -13,9 +14,10 @@ function StartPage() {
       <ImgWrapper>
         <Img src={`${import.meta.env.BASE_URL}study_nihongo.png`} />
       </ImgWrapper>
+      <Headline>おだやか日本語</Headline>
       <LinkGroup>
         <LinkWrapper to="/quiz/grammarSet" style={{ textDecoration: "none" }}>
-          <Button as="div">语法练习</Button>
+          <Button as="div" type="primary">语法练习</Button>
         </LinkWrapper>
         <LinkWrapper to="/quiz/sharedDict" style={{ textDecoration: "none" }}>
           <Button as="div">词汇练习</Button>
@@ -37,6 +39,8 @@ const Wrapper = styled.div`
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 0.25rem;
+  padding: 1rem;
 `;
 const ImgWrapper = styled.div`
   width: 8rem;
@@ -44,12 +48,21 @@ const ImgWrapper = styled.div`
 const Img = styled.img`
   width: 100%;
 `;
+const Headline = styled.h1`
+  margin-top: 0.5rem;
+  margin-bottom: 1.25rem;
+  font-family: ${FONT_FAMILY.japanese_tertiary};
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text);
+`;
 const LinkGroup = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.6rem;
   width: 100%;
-  max-width: 150px;
+  max-width: 220px;
 `;
 
 const DebugEntry = styled(LinkWrapper)`

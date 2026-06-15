@@ -59,6 +59,7 @@ const IconInput = ({ label, icon, width = 250, size, ...delegated }) => {
 
 const Wrapper = styled.div`
   width: var(--width);
+  max-width: 100%;
   height: var(--height);
   position: relative;
   color: var(--gray15);
@@ -85,11 +86,14 @@ const Input = styled.input`
   margin: 0;
   padding-top: var(--paddingTop);
   padding-left: var(--paddingLeft);
-  width: var(--width);
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   height: inherit;
   border: none;
   border-bottom: var(--borderWidth) var(--gray40) solid;
   outline-offset: 2px;
+  transition: border-color 120ms ease;
 
   font-size: var(--fontSize);
   font-weight: 700;
@@ -97,6 +101,9 @@ const Input = styled.input`
   &::placeholder {
     font-weight: 400;
     color: var(--gray60);
+  }
+  &:focus {
+    border-bottom-color: var(--accent);
   }
 `;
 export default IconInput;

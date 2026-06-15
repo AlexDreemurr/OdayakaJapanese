@@ -3,19 +3,28 @@ import { FONT_SIZE } from "../../constants";
 
 const STYLE = {
   default: {
-    "--backgroundColor": "var(--gray85)",
-    "--hoverColor": "hsl(0deg 0% 75%)",
-    "--color": "black",
+    "--backgroundColor": "var(--surface)",
+    "--hoverColor": "var(--gray85)",
+    "--color": "var(--text)",
+    "--borderColor": "var(--border)",
+  },
+  primary: {
+    "--backgroundColor": "var(--accent)",
+    "--hoverColor": "var(--accent-strong)",
+    "--color": "hsl(40deg 36% 99%)",
+    "--borderColor": "transparent",
   },
   success: {
-    "--backgroundColor": "hsl(0 0% 15%)",
-    "--hoverColor": "hsl(0deg 0% 0%)",
+    "--backgroundColor": "var(--gray15)",
+    "--hoverColor": "hsl(26deg 16% 8%)",
     "--color": "var(--gray85)",
+    "--borderColor": "transparent",
   },
   info: {
-    "--backgroundColor": "hsl(200deg 5% 95%)",
-    "--hoverColor": "hsl(0deg 0% 85%)",
-    "--color": "var(--gray95)",
+    "--backgroundColor": "var(--gray85)",
+    "--hoverColor": "var(--gray75)",
+    "--color": "var(--text)",
+    "--borderColor": "var(--border)",
   },
 };
 export default function Button({
@@ -25,8 +34,8 @@ export default function Button({
   children,
   ...delegated
 }) {
-  /* type: 
-        default | success | info 
+  /* type:
+        default | primary | success | info
   */
 
   return (
@@ -48,12 +57,27 @@ const Wrapper = styled.button`
   width: 100%;
   max-width: 400px;
   margin: 0 auto;
+  padding: 0.5rem 1rem;
   font-size: ${FONT_SIZE.small};
+  font-weight: 600;
   background-color: var(--backgroundColor);
   color: var(--color);
-  border: none;
-  border: 1px var(--gray60) solid;
+  border: 1px solid var(--borderColor);
+  border-radius: 0.6rem;
+  cursor: pointer;
+  transition: background-color 120ms ease, box-shadow 120ms ease,
+    transform 80ms ease;
+  box-shadow: var(--shadow-sm);
+
   &:hover {
     background-color: var(--hoverColor);
+  }
+  &:active {
+    transform: translateY(1px);
+  }
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    box-shadow: none;
   }
 `;

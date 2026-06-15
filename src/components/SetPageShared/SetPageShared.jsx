@@ -158,13 +158,16 @@ export const SetItem = React.forwardRef(function SetItem(
 // ── Styled components ──────────────────────────────────────────────────────────
 
 const HeaderBar = styled.div`
+  position: sticky;
+  top: var(--header-height);
+  z-index: 5;
   display: flex;
   justify-content: flex-start;
   align-items: center;
   margin-left: 1rem;
   margin-right: 1rem;
-  background-color: var(--gray85);
-  border-bottom: 1px var(--gray60) solid;
+  background-color: var(--bg);
+  border-bottom: 1px solid var(--border);
 `;
 const TitleArea = styled.div`
   flex: 1;
@@ -174,10 +177,10 @@ const TitleArea = styled.div`
   align-items: center;
 `;
 const TitleText = styled.p`
-  font-size: 1rem;
+  font-size: 1.05rem;
   margin-left: 0.5rem;
-  font-weight: 500;
-  color: var(--gray15);
+  font-weight: 700;
+  color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -202,11 +205,12 @@ const ItemRow = styled.div`
   align-items: center;
   gap: 0.75rem;
   margin: 0 1rem;
-  padding: 0.45rem 1rem 0.35rem 0.4rem;
-  border-bottom: 1px var(--gray60) solid;
+  padding: 0.55rem 1rem 0.45rem 0.5rem;
+  border-bottom: 1px solid var(--border);
   cursor: pointer;
+  transition: background-color 120ms ease;
   &:hover {
-    background-color: var(--gray85);
+    background-color: var(--accent-soft);
   }
 `;
 const PrimaryText = styled.span`

@@ -44,11 +44,13 @@ export default function QuizAnswer({
       setIsLoading(false);
     }
   }
+  const isCorrect = userAnswer === quizObject.answer;
   return (
     <AnswerPage>
-      <TypoWrapper>
-        {userAnswer === quizObject.answer ? "回答正确！" : "好像有点不太对..."}
-      </TypoWrapper>
+      <ResultHeading $correct={isCorrect}>
+        <ResultDot $correct={isCorrect} />
+        {isCorrect ? "回答正确！" : "好像有点不太对..."}
+      </ResultHeading>
       {/* 渲染原题目及答案 */}
       <SentenceBox>{quizObject.rawSentence}</SentenceBox>
       {needTranslate && isLoading && (
@@ -81,6 +83,7 @@ export default function QuizAnswer({
       <ButtonWrapper>
         <Button onClick={handleTranslate}>获得翻译</Button>
         <Button
+          type="primary"
           onClick={() => {
             hideAnswerToast();
             setIsChecking(false);
@@ -96,12 +99,31 @@ export default function QuizAnswer({
 }
 const AnswerPage = styled.article`
   padding: 0 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+`;
+
+const ResultHeading = styled.p`
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: ${(p) => (p.$correct ? "1.25rem" : "1.125rem")};
+  font-weight: 700;
+  color: ${(p) => (p.$correct ? "var(--green15)" : "var(--red15)")};
+`;
+const ResultDot = styled.span`
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  background-color: ${(p) => (p.$correct ? "var(--green15)" : "var(--red15)")};
 `;
 
 const ButtonWrapper = styled.div`
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  margin-top: 0.25rem;
 `;
 const Grammar = styled.span`
   font-family: "BIZ UDMincho";

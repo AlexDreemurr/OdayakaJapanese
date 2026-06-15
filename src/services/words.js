@@ -16,6 +16,18 @@ export function getWordsBySetId(setId) {
 }
 
 /**
+ * 获取多个词汇集下的所有词条（用于「全部词汇」汇聚视图）。
+ * @param {number[]} setIds
+ * @returns {Promise<{data: Array|null, error: object|null}>}
+ */
+export function getWordsBySetIds(setIds) {
+  if (!Array.isArray(setIds) || setIds.length === 0) {
+    return Promise.resolve({ data: [], error: null });
+  }
+  return supabase.from("vocabulary").select("*").in("set_id", setIds);
+}
+
+/**
  * 在指定词汇集内查找某个词是否已存在（用于去重）。
  * @param {string} word
  * @param {number} setId

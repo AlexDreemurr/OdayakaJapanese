@@ -57,23 +57,24 @@ const SentenceText = styled.div`
 `;
 
 const Answer = styled.span`
-  background-color: var(--gray15);
-  color: var(--gray85);
-  border-radius: 0.5rem;
-  padding: 0rem 0.4rem 0rem 0.4rem;
+  background-color: var(--accent);
+  color: hsl(40deg 36% 99%);
+  border-radius: 0.45rem;
+  padding: 0rem 0.45rem;
   margin-left: 0.1rem;
   margin-right: 0.1rem;
-  /* border: 1px black solid; */
   display: inline-block;
   font-size: inherit;
+  font-weight: 600;
   text-indent: 0;
 `;
 const SentenceWrapper = styled.div`
   position: relative;
-  background-color: var(--gray85);
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
   padding: 1rem 1.5rem;
   margin: 0;
-  margin-bottom: 0.5rem;
   border-radius: 1rem;
   font-family: "BIZ UDMincho";
 `;
@@ -81,6 +82,7 @@ const TranslateWrapper = styled(SentenceWrapper)`
   text-indent: 2rem;
   background-color: var(--gray15);
   color: var(--gray85);
+  border-color: transparent;
   font-family: "Noto Serif SC", serif;
 `;
 const LoadingWrapper = styled(TranslateWrapper)`

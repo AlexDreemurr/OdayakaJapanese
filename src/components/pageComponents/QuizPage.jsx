@@ -7,6 +7,8 @@ import {
 } from "../../services/quiz";
 import SingleSelect from "../SingleSelect/SingleSelect";
 import QuizAnswer from "../QuizAnswer/QuizAnswer";
+import TypeReadingQuiz from "../TypeReadingQuiz/TypeReadingQuiz";
+import ChooseMeaningQuiz from "../ChooseMeaningQuiz/ChooseMeaningQuiz";
 import Papa from "papaparse";
 import React from "react";
 import styled from "styled-components";
@@ -124,11 +126,38 @@ function QuizPage({
       ? "当前没有可用的语法题库，请先加入一个语法集。"
       : "当前没有可用的共享单词题库，请先加入一个词汇集。";
 
+  // 新题型（看汉字写假名 / 选词义）自包含作答与结果，不走 isChecking 两段式。
+  const isStandaloneMode =
+    quizObject.mode === "typeReading" || quizObject.mode === "chooseMeaning";
+
+  function goToNextQuiz() {
+    setCurQuizNum((d) => d + 1);
+    setStatus("busy");
+  }
+
   return (
     <Main>
       {status === "busy" && <HashLoader />}
       {status === "empty" && <Message>{emptyMessage}</Message>}
-      {status === "free" && !isChecking && (
+
+      {status === "free" && quizObject.mode === "typeReading" && (
+        <TypeReadingQuiz
+          quizObject={quizObject}
+          showAnswerToast={showAnswerToast}
+          hideAnswerToast={hideAnswerToast}
+          onContinue={goToNextQuiz}
+        />
+      )}
+      {status === "free" && quizObject.mode === "chooseMeaning" && (
+        <ChooseMeaningQuiz
+          quizObject={quizObject}
+          showAnswerToast={showAnswerToast}
+          hideAnswerToast={hideAnswerToast}
+          onContinue={goToNextQuiz}
+        />
+      )}
+
+      {status === "free" && !isStandaloneMode && !isChecking && (
         <SingleSelect
           source={quizObject}
           userAnswer={userAnswer}
@@ -139,7 +168,7 @@ function QuizPage({
           }}
         />
       )}
-      {status === "free" && isChecking && (
+      {status === "free" && !isStandaloneMode && isChecking && (
         <QuizAnswer
           quizObject={quizObject}
           userAnswer={userAnswer}
@@ -154,7 +183,11 @@ function QuizPage({
 }
 
 const Main = styled.main`
-  padding: 2rem 1.5rem;
-  max-width: 800px;
+  width: 100%;
+  max-width: 640px;
+  padding: 1.5rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
 `;
 export default QuizPage;

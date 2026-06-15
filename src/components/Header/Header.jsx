@@ -52,6 +52,8 @@ const Wrapper = styled.header`
   isolation: isolate;
   z-index: 30;
   overflow: hidden;
+  border-bottom: 1px solid hsl(26deg 16% 24%);
+  box-shadow: 0 2px 12px hsl(26deg 16% 8% / 0.18);
 
   @media ${QUERIES.tabletAndUp} {
     padding-left: 1.3rem;
@@ -104,7 +106,20 @@ const Nav = styled.nav`
 
   @media ${QUERIES.laptopAndUp} {
     display: flex;
-    gap: 1rem;
+    gap: 0.35rem;
+  }
+
+  a {
+    text-decoration: none;
+    color: var(--gray60);
+    padding: 0.35rem 0.7rem;
+    border-radius: 0.5rem;
+    transition: color 120ms ease, background-color 120ms ease;
+
+    &:hover {
+      color: var(--gray95);
+      background-color: hsl(26deg 16% 22%);
+    }
   }
 `;
 

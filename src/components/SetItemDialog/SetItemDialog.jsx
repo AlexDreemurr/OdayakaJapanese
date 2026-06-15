@@ -106,11 +106,13 @@ const Overlay = styled(Dialog.Overlay)`
   position: fixed;
   inset: 0;
   background-color: var(--transparentGray15);
+  z-index: 100;
 `;
 const Content = styled(Dialog.Content)`
   position: fixed;
   top: 0; bottom: 0; left: 0; right: 0;
   margin: auto;
+  z-index: 101;
   width: 80%;
   max-width: ${400 / 16}rem;
   max-height: calc(50% + 10rem);

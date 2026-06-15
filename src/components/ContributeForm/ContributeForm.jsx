@@ -290,9 +290,10 @@ const TitleWrapper = styled.h1`
 const LabelWrapper = styled.label`
   font-size: ${FONT_SIZE.default};
   width: 70px;
+  flex-shrink: 0;
   display: flex;
   justify-content: flex-end;
-  align-items: baseline;
+  align-items: center;
 
   /* 所有 label 都有占位，保证宽度一致 */
   &::after {
@@ -306,7 +307,7 @@ const LabelWrapper = styled.label`
 const RowWrapper = styled.div`
   display: flex;
   gap: 0.5rem;
-  align-items: baseline;
+  align-items: center;
   min-width: 0;
   &:has(input:required)
     ${LabelWrapper}::after,&[data-required]
@@ -345,32 +346,44 @@ const autofillStyles = css`
   }
 `;
 
-const InputWrapper = styled.input`
+const fieldStyles = css`
   font-size: ${FONT_SIZE.default};
   display: block;
+  width: 100%;
+  max-width: 100%;
   min-width: 0;
-  flex: 1 100000 0;
+  flex: 1 1 0;
+  padding: 0.45rem 0.7rem;
+  color: var(--text);
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
   outline: none;
-  &:focus {
-    outline: 2px solid var(--gray15);
-    border-radius: 1px;
-    outline-offset: 2px;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+  &::placeholder {
+    color: var(--gray60);
   }
+  &:hover:not(:disabled) {
+    border-color: var(--gray60);
+  }
+  &:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  &:disabled {
+    background-color: var(--gray95);
+    color: var(--text-muted);
+  }
+`;
+
+const InputWrapper = styled.input`
+  ${fieldStyles}
   ${autofillStyles}
 `;
 const TextareaWrapper = styled.textarea`
-  font-size: ${FONT_SIZE.default};
-  display: block;
-  min-width: 0;
-  flex: 1 100000 0;
-  outline: none;
+  ${fieldStyles}
   resize: vertical; /* 只允许垂直拉伸，防止水平方向破坏布局 */
-  min-height: 37px;
-  &:focus {
-    outline: 2px solid var(--gray15);
-    border-radius: 1px;
-    outline-offset: 2px;
-  }
+  min-height: 2.4rem;
   ${autofillStyles}
 `;
 const StatusWrapper = styled.div`

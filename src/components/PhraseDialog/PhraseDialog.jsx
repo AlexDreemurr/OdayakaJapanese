@@ -256,13 +256,13 @@ function PhraseDialog({
             onConfirm={handleDeletePhrase}
             trigger={
               <DeleteIconButton type="button" aria-label="删除词条">
-                <IconWrapper id="remove" size="1.3rem" />
+                <Icon id="remove" size="1.3rem" />
               </DeleteIconButton>
             }
           />
         ) : (
           <DeleteIconButton type="button" aria-label="申请删除词条" onClick={requestDeletePhrase}>
-            <IconWrapper id="remove" size="1.3rem" />
+            <Icon id="remove" size="1.3rem" />
           </DeleteIconButton>
         )
       }

@@ -5,6 +5,22 @@ export function getSentenceText(sentence) {
   return typeof sentence === "string" ? sentence : sentence?.text ?? "";
 }
 
+/**
+ * 归一化假名，用于「看汉字输入假名」练习的答案比对。
+ * 片假名转平假名，去除空白、中点、长音线等装饰字符。
+ * @param {string} value
+ * @returns {string}
+ */
+export function normalizeKana(value) {
+  if (typeof value !== "string") return "";
+  return value
+    .trim()
+    .replace(/[\s　・･ー―‐-]/g, "")
+    .replace(/[ァ-ヶ]/g, (ch) =>
+      String.fromCharCode(ch.charCodeAt(0) - 0x60)
+    );
+}
+
 export function getSentenceTargetReading(sentence, wordReading = "") {
   return typeof sentence === "string"
     ? wordReading
@@ -144,7 +160,14 @@ export function formatToChinaTime(isoString) {
   return `${year}/${month}/${day}`;
 }
 const Blank = styled.span`
-  border: 1px black solid;
-  padding: 0px 1.5rem;
-  margin: 0 5px;
+  display: inline-block;
+  min-width: 3rem;
+  text-align: center;
+  color: var(--accent);
+  font-weight: 700;
+  background-color: var(--accent-soft);
+  border: 1px solid var(--accent);
+  border-radius: 0.4rem;
+  padding: 0 0.9rem;
+  margin: 0 0.3rem;
 `;

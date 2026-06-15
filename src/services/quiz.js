@@ -19,6 +19,11 @@ import {
   getStoredGrammarSetIds,
   storeGrammarSetIds,
 } from "../grammarSettings";
+import {
+  getStoredVocabSelectionWeight,
+  getStoredUseAllVocab,
+  pickVocabMode,
+} from "../quizSelectionSettings";
 
 const DEFAULT_PHRASE_SET_ID = 1;
 
@@ -45,6 +50,39 @@ function getLeastPracticedSentenceIndex(counts) {
     .filter((index) => index !== null);
 
   return candidateIndexes[Math.floor(Math.random() * candidateIndexes.length)];
+}
+
+/**
+ * 按抽取权重从候选条目中选取一条。
+ * weight 为 0 时完全随机；为 1 时完全按"做对（correct_counts）最少优先"；
+ * 介于两者之间时，以 weight 的概率执行优先选取，否则随机。
+ * @param {Array<{id: number}>} items - 候选条目（含 id）
+ * @param {Map} practiceById - id → 练习记录行（含 correct_counts）
+ * @param {number} weight - 0~1
+ */
+function selectByWeight(items, practiceById, weight) {
+  if (weight <= 0 || Math.random() >= weight) {
+    return items[Math.floor(Math.random() * items.length)];
+  }
+
+  let lowestCorrect = Infinity;
+  const candidates = [];
+
+  for (const item of items) {
+    const correctTotal = getPracticeCountTotal(
+      practiceById.get(item.id)?.correct_counts
+    );
+
+    if (correctTotal < lowestCorrect) {
+      lowestCorrect = correctTotal;
+      candidates.length = 0;
+      candidates.push(item);
+    } else if (correctTotal === lowestCorrect) {
+      candidates.push(item);
+    }
+  }
+
+  return candidates[Math.floor(Math.random() * candidates.length)];
 }
 
 /** 根据片假名概率决定展示假名读音还是原词。 */
@@ -93,6 +131,12 @@ async function getSafeSharedDictSetIds(user) {
   }
 
   const memberSetIds = memberships.map((membership) => membership.set_id);
+
+  // 「全部词汇」：忽略已存的子集，使用全部已加入的词汇集。
+  if (getStoredUseAllVocab()) {
+    return memberSetIds;
+  }
+
   const candidateSetIds =
     storedIds === null
       ? Array.from(new Set([DEFAULT_PHRASE_SET_ID, ...memberSetIds]))
@@ -152,12 +196,13 @@ async function getRandomVocab(phraseSetIds = null) {
 }
 
 /**
- * 优先选取练习次数最少的词条（已登录时使用）。
+ * 按抽取权重选取词条（已登录时使用）。
  * @param {string} userId
  * @param {number[]|null} phraseSetIds
+ * @param {number} selectionWeight - 0~1，0=全随机，1=全按做对最少优先
  * @returns {Promise<object|null>}
  */
-async function getPracticeVocab(userId, phraseSetIds = null) {
+async function getPracticeVocab(userId, phraseSetIds = null, selectionWeight = 1) {
   const { data: vocabularies, error } = await applyPhraseSetFilter(
     supabase.from("vocabulary").select("*"),
     phraseSetIds
@@ -187,25 +232,12 @@ async function getPracticeVocab(userId, phraseSetIds = null) {
   const practiceByVocabularyId = new Map(
     (practiceRows ?? []).map((row) => [row.vocabulary_id, row])
   );
-  let lowestTotal = Infinity;
-  const candidates = [];
 
-  for (const vocab of vocabularies) {
-    const total = getPracticeCountTotal(
-      practiceByVocabularyId.get(vocab.id)?.attempt_counts
-    );
-
-    if (total < lowestTotal) {
-      lowestTotal = total;
-      candidates.length = 0;
-      candidates.push(vocab);
-    } else if (total === lowestTotal) {
-      candidates.push(vocab);
-    }
-  }
-
-  const selectedVocab =
-    candidates[Math.floor(Math.random() * candidates.length)];
+  const selectedVocab = selectByWeight(
+    vocabularies,
+    practiceByVocabularyId,
+    selectionWeight
+  );
 
   return {
     ...selectedVocab,
@@ -259,11 +291,44 @@ async function getRandomWords(count = 3, avoidWord = "", phraseSetIds = null) {
   return results;
 }
 
+/**
+ * 拉取题库内全部词条及（登录用户的）练习记录。
+ * @returns {Promise<{pool: Array, practiceById: Map}>}
+ */
+async function getVocabPoolWithPractice(user, phraseSetIds) {
+  const { data: vocabularies, error } = await applyPhraseSetFilter(
+    supabase.from("vocabulary").select("*"),
+    phraseSetIds
+  );
+
+  if (error || !vocabularies?.length) {
+    if (error) console.error(error.message);
+    return { pool: [], practiceById: new Map() };
+  }
+
+  let practiceById = new Map();
+  if (user) {
+    const ids = vocabularies.map((v) => v.id);
+    const { data: rows, error: practiceError } = await supabase
+      .from("vocab_practice")
+      .select("vocabulary_id, correct_counts, attempt_counts")
+      .eq("user_id", user.id)
+      .in("vocabulary_id", ids);
+    if (practiceError) {
+      console.error(practiceError.message);
+    } else {
+      practiceById = new Map((rows ?? []).map((r) => [r.vocabulary_id, r]));
+    }
+  }
+
+  return { pool: vocabularies, practiceById };
+}
+
 // ─── 公共 API ─────────────────────────────────────────────────────────────────
 
 /**
  * 从共享词典生成一道随机测验题目。
- * 已登录用户会优先选取练习次数最少的词条。
+ * 题型按用户设置的比例随机：句子填空 / 看汉字写假名 / 选择词义。
  * @param {number} katakanaRate - 选项以片假名展示的概率 (0~1)
  * @returns {Promise<object|null>} 题目对象，无可用词汇时返回 null
  */
@@ -273,8 +338,27 @@ export async function fetchSharedDictQuiz(katakanaRate = 0) {
   } = await supabase.auth.getUser();
 
   const phraseSetIds = await getSafeSharedDictSetIds(user);
+  const selectionWeight = getStoredVocabSelectionWeight();
+  const mode = pickVocabMode();
+
+  if (mode === "typeReading") {
+    return fetchTypeReadingQuiz(user, phraseSetIds, selectionWeight);
+  }
+  if (mode === "chooseMeaning") {
+    return fetchChooseMeaningQuiz(
+      user,
+      phraseSetIds,
+      selectionWeight,
+      katakanaRate
+    );
+  }
+  return fetchSentenceQuiz(user, phraseSetIds, selectionWeight, katakanaRate);
+}
+
+/** 题型一：句子填空（原有题型）。 */
+async function fetchSentenceQuiz(user, phraseSetIds, selectionWeight, katakanaRate) {
   const vocab = user
-    ? await getPracticeVocab(user.id, phraseSetIds)
+    ? await getPracticeVocab(user.id, phraseSetIds, selectionWeight)
     : await getRandomVocab(phraseSetIds);
 
   if (!vocab) {
@@ -305,6 +389,7 @@ export async function fetchSharedDictQuiz(katakanaRate = 0) {
 
   return {
     id: Math.random(),
+    mode: "sentence",
     rawSentence,
     question: sentence,
     choices: choices.map((choice) => choice.value),
@@ -317,6 +402,82 @@ export async function fetchSharedDictQuiz(katakanaRate = 0) {
     vocabularyPitch: vocab.pitch,
     vocabularyId: vocab.id,
     sentenceIndex,
+  };
+}
+
+/** 题型二：看汉字写假名，一题 3 个单词同时作答。 */
+async function fetchTypeReadingQuiz(user, phraseSetIds, selectionWeight) {
+  const { pool, practiceById } = await getVocabPoolWithPractice(
+    user,
+    phraseSetIds
+  );
+  const candidates = pool.filter((v) => v.reading && v.word);
+  const usable = candidates.length ? candidates : pool.filter((v) => v.reading);
+  if (!usable.length) return null;
+
+  const count = Math.min(3, usable.length);
+  const remaining = [...usable];
+  const picked = [];
+  for (let i = 0; i < count; i++) {
+    const choice = selectByWeight(remaining, practiceById, selectionWeight);
+    picked.push(choice);
+    remaining.splice(remaining.indexOf(choice), 1);
+  }
+
+  return {
+    id: Math.random(),
+    mode: "typeReading",
+    words: picked.map((v) => ({
+      vocabularyId: v.id,
+      word: v.word,
+      reading: v.reading,
+      meaning: v.meaning,
+      pitch: v.pitch,
+    })),
+  };
+}
+
+/** 题型三：看假名/汉字选词义，最多 8 个备选。 */
+async function fetchChooseMeaningQuiz(
+  user,
+  phraseSetIds,
+  selectionWeight,
+  katakanaRate
+) {
+  const { pool, practiceById } = await getVocabPoolWithPractice(
+    user,
+    phraseSetIds
+  );
+  const withMeaning = pool.filter((v) => v.meaning);
+  const usable = withMeaning.length ? withMeaning : pool;
+  if (!usable.length) return null;
+
+  const target = selectByWeight(usable, practiceById, selectionWeight);
+  const distractorMeanings = [
+    ...new Set(
+      usable
+        .filter((v) => v.id !== target.id && v.meaning && v.meaning !== target.meaning)
+        .map((v) => v.meaning)
+    ),
+  ];
+  const distractors = shuffle(distractorMeanings).slice(0, 7);
+  const choices = shuffle([target.meaning, ...distractors]);
+
+  const showReading = !!target.reading && Math.random() < katakanaRate;
+
+  return {
+    id: Math.random(),
+    mode: "chooseMeaning",
+    vocabularyId: target.id,
+    prompt: showReading ? target.reading : target.word,
+    promptIsReading: showReading,
+    word: target.word,
+    reading: target.reading,
+    vocabularyPitch: target.pitch,
+    choices,
+    choiceLabels: choices,
+    answer: target.meaning,
+    meaning: target.meaning,
   };
 }
 
@@ -381,6 +542,72 @@ export async function updateVocabPractice(quizObject, isCorrect) {
   if (upsertError) {
     console.error(upsertError.message);
   }
+}
+
+/**
+ * 为新题型（看汉字写假名 / 选词义）累加一条练习记录。
+ * 这些题型没有 sentenceIndex，统一记到第 0 槽。
+ */
+async function incrementVocabPractice(userId, vocabularyId, isCorrect) {
+  const { data, error } = await supabase
+    .from("vocab_practice")
+    .select("correct_counts, attempt_counts")
+    .eq("user_id", userId)
+    .eq("vocabulary_id", vocabularyId)
+    .maybeSingle();
+
+  if (error) {
+    console.error(error.message);
+    return;
+  }
+
+  const correctCounts = normalizePracticeCounts(data?.correct_counts);
+  const attemptCounts = normalizePracticeCounts(data?.attempt_counts);
+  attemptCounts[0] += 1;
+  if (isCorrect) correctCounts[0] += 1;
+
+  const { error: upsertError } = await supabase.from("vocab_practice").upsert(
+    {
+      user_id: userId,
+      vocabulary_id: vocabularyId,
+      correct_counts: correctCounts,
+      attempt_counts: attemptCounts,
+    },
+    { onConflict: "user_id,vocabulary_id" }
+  );
+
+  if (upsertError) console.error(upsertError.message);
+}
+
+/**
+ * 「看汉字写假名」练习结果写入（3 个单词分别记录）。
+ * @param {Array<{vocabularyId:number, isCorrect:boolean}>} results
+ */
+export async function updateTypeReadingPractice(results) {
+  if (!Array.isArray(results) || results.length === 0) return;
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  for (const r of results) {
+    if (r?.vocabularyId == null) continue;
+    await incrementVocabPractice(user.id, r.vocabularyId, !!r.isCorrect);
+  }
+}
+
+/**
+ * 「选词义」练习结果写入。
+ * @param {object} quizObject - fetchSharedDictQuiz 返回的题目对象
+ * @param {boolean} isCorrect
+ */
+export async function updateChooseMeaningPractice(quizObject, isCorrect) {
+  if (quizObject?.vocabularyId == null) return;
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+  await incrementVocabPractice(user.id, quizObject.vocabularyId, !!isCorrect);
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
