@@ -59,6 +59,7 @@ auth.users
 | level | text | YES | — | JLPT 等级等 |
 | sentences | jsonb | YES | — | 例句，JSON 数组 |
 | contributor_name | text | YES | — | 贡献者展示名（冗余） |
+| categories | text[] | NO | `'{}'` | 词性分类（和语动词/汉字词/拟声词…），一个词可多种 |
 | set_id | integer | YES | — | FK → vocabulary_sets.id，**ON DELETE SET NULL** |
 
 > ⚠️ 删除词汇集后，该集合的词汇 set_id 变为 null，词汇本身不删除。

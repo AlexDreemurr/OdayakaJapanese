@@ -52,15 +52,26 @@ function getLeastPracticedSentenceIndex(counts) {
   return candidateIndexes[Math.floor(Math.random() * candidateIndexes.length)];
 }
 
+/** 句子填空/选词义题型的「做对次数」：correct_counts 之和。 */
+function getCorrectTotal(row) {
+  return getPracticeCountTotal(row?.correct_counts);
+}
+
+/** 看汉字写假名题型的「做对次数」：独立的 reading_correct_count。 */
+function getReadingCorrectTotal(row) {
+  return Number(row?.reading_correct_count) || 0;
+}
+
 /**
  * 按抽取权重从候选条目中选取一条。
- * weight 为 0 时完全随机；为 1 时完全按"做对（correct_counts）最少优先"；
+ * weight 为 0 时完全随机；为 1 时完全按"做对最少优先"；
  * 介于两者之间时，以 weight 的概率执行优先选取，否则随机。
  * @param {Array<{id: number}>} items - 候选条目（含 id）
- * @param {Map} practiceById - id → 练习记录行（含 correct_counts）
+ * @param {Map} practiceById - id → 练习记录行
  * @param {number} weight - 0~1
+ * @param {(row:object)=>number} getCount - 取某条记录的「做对次数」，默认按 correct_counts
  */
-function selectByWeight(items, practiceById, weight) {
+function selectByWeight(items, practiceById, weight, getCount = getCorrectTotal) {
   if (weight <= 0 || Math.random() >= weight) {
     return items[Math.floor(Math.random() * items.length)];
   }
@@ -69,9 +80,7 @@ function selectByWeight(items, practiceById, weight) {
   const candidates = [];
 
   for (const item of items) {
-    const correctTotal = getPracticeCountTotal(
-      practiceById.get(item.id)?.correct_counts
-    );
+    const correctTotal = getCount(practiceById.get(item.id));
 
     if (correctTotal < lowestCorrect) {
       lowestCorrect = correctTotal;
@@ -311,7 +320,9 @@ async function getVocabPoolWithPractice(user, phraseSetIds) {
     const ids = vocabularies.map((v) => v.id);
     const { data: rows, error: practiceError } = await supabase
       .from("vocab_practice")
-      .select("vocabulary_id, correct_counts, attempt_counts")
+      .select(
+        "vocabulary_id, correct_counts, attempt_counts, reading_correct_count, reading_attempt_count"
+      )
       .eq("user_id", user.id)
       .in("vocabulary_id", ids);
     if (practiceError) {
@@ -341,16 +352,18 @@ export async function fetchSharedDictQuiz(katakanaRate = 0) {
   const selectionWeight = getStoredVocabSelectionWeight();
   const mode = pickVocabMode();
 
+  // 新题型可能因题库不满足条件（如无含汉字的词）返回 null，回退到句子填空。
   if (mode === "typeReading") {
-    return fetchTypeReadingQuiz(user, phraseSetIds, selectionWeight);
-  }
-  if (mode === "chooseMeaning") {
-    return fetchChooseMeaningQuiz(
+    const quiz = await fetchTypeReadingQuiz(user, phraseSetIds, selectionWeight);
+    if (quiz) return quiz;
+  } else if (mode === "chooseMeaning") {
+    const quiz = await fetchChooseMeaningQuiz(
       user,
       phraseSetIds,
       selectionWeight,
       katakanaRate
     );
+    if (quiz) return quiz;
   }
   return fetchSentenceQuiz(user, phraseSetIds, selectionWeight, katakanaRate);
 }
@@ -405,21 +418,32 @@ async function fetchSentenceQuiz(user, phraseSetIds, selectionWeight, katakanaRa
   };
 }
 
-/** 题型二：看汉字写假名，一题 3 个单词同时作答。 */
+/** 判断字符串是否含汉字（仅含假名的词没有「看汉字写假名」的意义）。 */
+function hasKanji(text) {
+  return typeof text === "string" && /[㐀-䶿一-鿿々〆ヶ]/.test(text);
+}
+
+/** 题型二：看汉字写假名，一题 3 个单词同时作答（仅限含汉字的词）。 */
 async function fetchTypeReadingQuiz(user, phraseSetIds, selectionWeight) {
   const { pool, practiceById } = await getVocabPoolWithPractice(
     user,
     phraseSetIds
   );
-  const candidates = pool.filter((v) => v.reading && v.word);
-  const usable = candidates.length ? candidates : pool.filter((v) => v.reading);
+  // 必须有读音、有汉字（纯平/片假名词不抽查）。
+  const usable = pool.filter((v) => v.reading && hasKanji(v.word));
   if (!usable.length) return null;
 
   const count = Math.min(3, usable.length);
   const remaining = [...usable];
   const picked = [];
   for (let i = 0; i < count; i++) {
-    const choice = selectByWeight(remaining, practiceById, selectionWeight);
+    // 用独立的「看汉字写假名」做题记录来优先调度
+    const choice = selectByWeight(
+      remaining,
+      practiceById,
+      selectionWeight,
+      getReadingCorrectTotal
+    );
     picked.push(choice);
     remaining.splice(remaining.indexOf(choice), 1);
   }
@@ -580,7 +604,39 @@ async function incrementVocabPractice(userId, vocabularyId, isCorrect) {
 }
 
 /**
- * 「看汉字写假名」练习结果写入（3 个单词分别记录）。
+ * 「看汉字写假名」独立练习记录累加（reading_correct_count / reading_attempt_count）。
+ */
+async function incrementReadingPractice(userId, vocabularyId, isCorrect) {
+  const { data, error } = await supabase
+    .from("vocab_practice")
+    .select("reading_correct_count, reading_attempt_count")
+    .eq("user_id", userId)
+    .eq("vocabulary_id", vocabularyId)
+    .maybeSingle();
+
+  if (error) {
+    console.error(error.message);
+    return;
+  }
+
+  const readingCorrect = (Number(data?.reading_correct_count) || 0) + (isCorrect ? 1 : 0);
+  const readingAttempt = (Number(data?.reading_attempt_count) || 0) + 1;
+
+  const { error: upsertError } = await supabase.from("vocab_practice").upsert(
+    {
+      user_id: userId,
+      vocabulary_id: vocabularyId,
+      reading_correct_count: readingCorrect,
+      reading_attempt_count: readingAttempt,
+    },
+    { onConflict: "user_id,vocabulary_id" }
+  );
+
+  if (upsertError) console.error(upsertError.message);
+}
+
+/**
+ * 「看汉字写假名」练习结果写入（3 个单词分别记录，独立于句子填空）。
  * @param {Array<{vocabularyId:number, isCorrect:boolean}>} results
  */
 export async function updateTypeReadingPractice(results) {
@@ -592,7 +648,7 @@ export async function updateTypeReadingPractice(results) {
 
   for (const r of results) {
     if (r?.vocabularyId == null) continue;
-    await incrementVocabPractice(user.id, r.vocabularyId, !!r.isCorrect);
+    await incrementReadingPractice(user.id, r.vocabularyId, !!r.isCorrect);
   }
 }
 

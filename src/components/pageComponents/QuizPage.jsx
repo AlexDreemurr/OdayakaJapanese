@@ -137,7 +137,11 @@ function QuizPage({
 
   return (
     <Main>
-      {status === "busy" && <HashLoader />}
+      {status === "busy" && (
+        <LoaderWrapper>
+          <HashLoader color="hsl(223deg 56% 48%)" />
+        </LoaderWrapper>
+      )}
       {status === "empty" && <Message>{emptyMessage}</Message>}
 
       {status === "free" && quizObject.mode === "typeReading" && (
@@ -189,5 +193,12 @@ const Main = styled.main`
   display: flex;
   flex-direction: column;
   align-items: stretch;
+`;
+const LoaderWrapper = styled.div`
+  width: 100%;
+  min-height: 50dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 `;
 export default QuizPage;

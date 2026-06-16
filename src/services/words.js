@@ -28,6 +28,30 @@ export function getWordsBySetIds(setIds) {
 }
 
 /**
+ * 拉取全部词条的分类相关字段（用于一次性批量词性分类）。
+ * @returns {Promise<{data: Array|null, error: object|null}>}
+ */
+export function getAllVocabularyForClassification() {
+  return supabase
+    .from("vocabulary")
+    .select("id, word, reading, meaning, categories, set_id")
+    .order("id", { ascending: true });
+}
+
+/**
+ * 通过 RPC 更新某词条的词性分类（含权限校验）。
+ * @param {number} vocabularyId
+ * @param {string[]} categories
+ * @returns {Promise<{data: string|null, error: object|null}>}
+ */
+export function updateVocabularyCategories(vocabularyId, categories) {
+  return supabase.rpc("update_vocabulary_categories", {
+    p_vocabulary_id: vocabularyId,
+    p_categories: categories,
+  });
+}
+
+/**
  * 在指定词汇集内查找某个词是否已存在（用于去重）。
  * @param {string} word
  * @param {number} setId

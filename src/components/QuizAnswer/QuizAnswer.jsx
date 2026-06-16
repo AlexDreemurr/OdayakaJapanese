@@ -55,7 +55,7 @@ export default function QuizAnswer({
       <SentenceBox>{quizObject.rawSentence}</SentenceBox>
       {needTranslate && isLoading && (
         <SentenceBox type="loading">
-          <PacmanLoader color="hsl(0deg 0% 95%)" />
+          <PacmanLoader color="hsl(223deg 56% 48%)" size={22} />
           <TypoWrapper style={{ margin: 0 }}>翻译中</TypoWrapper>
         </SentenceBox>
       )}

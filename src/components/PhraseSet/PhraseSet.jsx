@@ -10,7 +10,14 @@ import {
 } from "../../services/words";
 import Message from "../Message/Message";
 import { HashLoader } from "react-spinners";
-import { QUERIES } from "../../constants";
+import {
+  QUERIES,
+  FONT_SIZE,
+  WORD_CATEGORIES,
+  UNCATEGORIZED,
+  categoryStyle,
+  normalizeCategories,
+} from "../../constants";
 import UnstyledButton from "../UnstyledButton/UnstyledButton";
 import PhraseDialog, { getCompletedSentenceCount } from "../PhraseDialog/PhraseDialog";
 import { useNavigate } from "react-router-dom";
@@ -228,8 +235,10 @@ function PhraseSet({ phraseSetId }) {
   // ← 新增：派生排序列表，不污染原始数据
   const displayedPhrases = useMemo(() => {
     const isStarSorting = starMode === "starsDesc" || starMode === "starsAsc";
+    // 分类模式不做线性排序，保持原始顺序，由「盒子」分组呈现。
+    const isLinearDefault = sortOrder === "default" || sortOrder === "category";
 
-    if (sortOrder === "default" && !isStarSorting) {
+    if (isLinearDefault && !isStarSorting) {
       return phrases;
     }
 
@@ -238,7 +247,7 @@ function PhraseSet({ phraseSetId }) {
       .sort((a, b) => {
         const starComparison = compareByStars(a.phrase, b.phrase);
 
-        if (sortOrder === "default") {
+        if (isLinearDefault) {
           return starComparison || a.index - b.index;
         }
 
@@ -280,6 +289,25 @@ function PhraseSet({ phraseSetId }) {
     return Array.from(groups, ([initial, items]) => ({ initial, items }));
   }, [visiblePhrases]);
 
+  // 按词性分类分组（一个词可属于多个分类，则出现在多个盒子里）。
+  const categoryGroups = useMemo(() => {
+    const groups = new Map();
+    const order = [...WORD_CATEGORIES, UNCATEGORIZED];
+
+    visiblePhrases.forEach((phrase) => {
+      const cats = normalizeCategories(phrase.categories);
+      const keys = cats.length ? cats : [UNCATEGORIZED];
+      keys.forEach((key) => {
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(phrase);
+      });
+    });
+
+    return Array.from(groups, ([category, items]) => ({ category, items })).sort(
+      (a, b) => order.indexOf(a.category) - order.indexOf(b.category)
+    );
+  }, [visiblePhrases]);
+
   if (loading)
     return (
       <LoadingWrapper>
@@ -291,10 +319,16 @@ function PhraseSet({ phraseSetId }) {
   if (error === "fetch_error")
     return <Message type="error">加载失败，请稍后重试</Message>;
 
-  // 点击同一个按钮循环切换： default → asc → desc → default
+  // 点击同一个按钮循环切换： default → asc → desc → category → default
   function handleSortToggle() {
     setSortOrder((prev) =>
-      prev === "default" ? "asc" : prev === "asc" ? "desc" : "default"
+      prev === "default"
+        ? "asc"
+        : prev === "asc"
+        ? "desc"
+        : prev === "desc"
+        ? "category"
+        : "default"
     );
   }
 
@@ -315,9 +349,18 @@ function PhraseSet({ phraseSetId }) {
     starsAsc: "arrowNarrowWideDown",
   }[starMode];
 
-  const sortLabel = { default: "默认顺序", asc: "あ→ん", desc: "ん→あ" }[
-    sortOrder
-  ];
+  const sortLabel = {
+    default: "默认顺序",
+    asc: "あ→ん",
+    desc: "ん→あ",
+    category: "按词性分类",
+  }[sortOrder];
+  const sortIconId = {
+    default: "ArrowUpDown",
+    asc: "ArrowDownAZ",
+    desc: "ArrowDownZA",
+    category: "select",
+  }[sortOrder];
   const actionItems = [
     ...(isAll
       ? []
@@ -341,12 +384,7 @@ function PhraseSet({ phraseSetId }) {
       onSelect: handleStarModeToggle,
     },
     {
-      icon:
-        sortOrder === "default"
-          ? "ArrowUpDown"
-          : sortOrder === "asc"
-          ? "ArrowDownAZ"
-          : "ArrowDownZA",
+      icon: sortIconId,
       label: `排序：${sortLabel}`,
       onSelect: handleSortToggle,
     },
@@ -378,11 +416,7 @@ function PhraseSet({ phraseSetId }) {
               <HeaderIcon id={starIconId} size="1.3rem" color="var(--gray15)" />
             </UnstyledButton>
             <UnstyledButton onClick={handleSortToggle}>
-              <HeaderIcon
-                id={sortOrder === "default" ? "ArrowUpDown" : sortOrder === "asc" ? "ArrowDownAZ" : "ArrowDownZA"}
-                size="1.3rem"
-                color="var(--gray15)"
-              />
+              <HeaderIcon id={sortIconId} size="1.3rem" color="var(--gray15)" />
             </UnstyledButton>
             <UnstyledButton onClick={() => setShowKana((prev) => !prev)}>
               <HeaderIcon id="Languages" size="1.3rem" color="var(--gray15)" />
@@ -429,7 +463,7 @@ function PhraseSet({ phraseSetId }) {
       </DefaultWrapper>
 
       {/* 当排序为按假名顺序时显示的ui */}
-      {sortOrder !== "default" && (
+      {(sortOrder === "asc" || sortOrder === "desc") && (
         <PhraseGroups>
           {groupedPhrases.map((group) => (
             <PhraseGroup key={group.initial}>
@@ -450,6 +484,37 @@ function PhraseSet({ phraseSetId }) {
             </PhraseGroup>
           ))}
         </PhraseGroups>
+      )}
+
+      {/* 当按词性分类时显示的「盒子」视图 */}
+      {sortOrder === "category" && (
+        <CategoryBoxes>
+          {categoryGroups.map((group) => {
+            const style = categoryStyle(group.category);
+            return (
+              <CategoryBox key={group.category}>
+                <CategoryBoxHeader
+                  style={{ "--cat-bg": style.bg, "--cat-fg": style.fg }}
+                >
+                  <span>{group.category}</span>
+                  <CategoryCount>{group.items.length}</CategoryCount>
+                </CategoryBoxHeader>
+                <ChipWrap>
+                  {group.items.map((phrase) => (
+                    <PhraseDialog
+                      key={phrase.id}
+                      phrase={phrase}
+                      showKana={showKana}
+                      canEdit={canEditPhrases}
+                      variant="chip"
+                      onChanged={() => fetchData({ showLoading: false })}
+                    />
+                  ))}
+                </ChipWrap>
+              </CategoryBox>
+            );
+          })}
+        </CategoryBoxes>
       )}
     </Wrapper>
   );
@@ -473,6 +538,45 @@ const LoadingWrapper = styled.div`
   align-items: center;
 `;
 const DefaultWrapper = styled.div``;
+
+const CategoryBoxes = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 0.75rem 1rem 1.5rem;
+`;
+const CategoryBox = styled.section`
+  border: 1px solid var(--border);
+  border-radius: 0.85rem;
+  background-color: var(--surface);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+`;
+const CategoryBoxHeader = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.85rem;
+  font-size: ${FONT_SIZE.small};
+  font-weight: 700;
+  color: var(--cat-fg);
+  background-color: var(--cat-bg);
+`;
+const CategoryCount = styled.span`
+  font-size: ${FONT_SIZE.tiny};
+  font-weight: 600;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  background-color: hsl(0deg 0% 100% / 0.55);
+  color: inherit;
+`;
+const ChipWrap = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.85rem;
+`;
+
 const PhraseGroups = styled.div`
   display: flex;
   flex-direction: column;

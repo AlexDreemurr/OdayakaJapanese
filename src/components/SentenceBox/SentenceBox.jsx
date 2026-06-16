@@ -65,7 +65,7 @@ const Answer = styled.span`
   margin-right: 0.1rem;
   display: inline-block;
   font-size: inherit;
-  font-weight: 600;
+  font-weight: 400;
   text-indent: 0;
 `;
 const SentenceWrapper = styled.div`
@@ -80,9 +80,9 @@ const SentenceWrapper = styled.div`
 `;
 const TranslateWrapper = styled(SentenceWrapper)`
   text-indent: 2rem;
-  background-color: var(--gray15);
-  color: var(--gray85);
-  border-color: transparent;
+  background-color: var(--accent-soft);
+  color: var(--text);
+  border-color: var(--accent);
   font-family: "Noto Serif SC", serif;
 `;
 const LoadingWrapper = styled(TranslateWrapper)`

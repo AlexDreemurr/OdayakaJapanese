@@ -19,6 +19,7 @@ import SentenceHistoryGrid from "../SentenceHistoryGrid/SentenceHistoryGrid";
 import { SetItem } from "../SetPageShared/SetPageShared";
 import SetItemDialog, { DeleteIconButton } from "../SetItemDialog/SetItemDialog";
 import { useAppMessages } from "../AppMessages/AppMessagesContext";
+import { normalizeCategories, categoryStyle } from "../../constants/wordCategories";
 
 function getCorrectCounts(correctCounts) {
   if (!Array.isArray(correctCounts)) return [];
@@ -38,6 +39,7 @@ function PhraseDialog({
   showStars = false,
   textIndent = "2rem",
   canEdit = false,
+  variant = "row",
   onChanged,
 }) {
   const [dialogOpen, setDialogOpen] = React.useState(false);
@@ -50,6 +52,7 @@ function PhraseDialog({
   const completedSentenceCount = getCompletedSentenceCount(
     draftPhrase.practiceCorrectCounts
   );
+  const categories = normalizeCategories(draftPhrase.categories);
 
   React.useEffect(() => {
     setDraftPhrase(phrase);
@@ -160,12 +163,29 @@ function PhraseDialog({
     <SetItemDialog
       onOpenChange={setDialogOpen}
       trigger={
-        <SetItem
-          primary={getPhraseText(draftPhrase, showKana)}
-          textIndent={textIndent}
-          showStars={showStars}
-          completedCount={completedSentenceCount}
-        />
+        variant === "chip" ? (
+          <WordChip type="button">
+            {getPhraseText(draftPhrase, showKana)}
+          </WordChip>
+        ) : (
+          <SetItem
+            primary={getPhraseText(draftPhrase, showKana)}
+            textIndent={textIndent}
+            showStars={showStars}
+            completedCount={completedSentenceCount}
+            badge={
+              categories.length > 0 ? (
+                <CategoryBadge>
+                  {categories.map((c) => (
+                    <CategoryPill key={c} $cat={c}>
+                      {c}
+                    </CategoryPill>
+                  ))}
+                </CategoryBadge>
+              ) : undefined
+            }
+          />
+        )
       }
       title={
         <>
@@ -196,6 +216,15 @@ function PhraseDialog({
       }
       detailsContent={
         <>
+          {categories.length > 0 && (
+            <CategoryRow>
+              {categories.map((c) => (
+                <CategoryPill key={c} $cat={c}>
+                  {c}
+                </CategoryPill>
+              ))}
+            </CategoryRow>
+          )}
           <LineBoxWrapper>
             <LineBox>
               <IconWrapper id="Languages" size={20} color="black" />
@@ -360,6 +389,55 @@ const Translation = styled.p`
 const BarLoaderWrapper = styled.div`
   align-self: center;
   transform: translateY(4px) translateX(1px);
+`;
+
+// ── 词性分类 ──────────────────────────────────────────────────────────────────
+const CategoryPill = styled.span`
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  background-color: ${(p) => categoryStyle(p.$cat).bg};
+  color: ${(p) => categoryStyle(p.$cat).fg};
+`;
+// 列表行右侧的分类徽标（一般只有一个）
+const CategoryBadge = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  max-width: 9rem;
+`;
+// 弹窗内的分类行
+const CategoryRow = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
+`;
+// 分类盒子视图里的词条小卡片
+const WordChip = styled.button`
+  font-family: ${FONT_FAMILY.japanese_primary};
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.55rem;
+  padding: 0.35rem 0.7rem;
+  cursor: pointer;
+  transition: border-color 120ms ease, background-color 120ms ease,
+    transform 80ms ease;
+  &:hover {
+    border-color: var(--accent);
+    background-color: var(--accent-soft);
+  }
+  &:active {
+    transform: translateY(1px);
+  }
 `;
 
 export default PhraseDialog;

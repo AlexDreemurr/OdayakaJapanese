@@ -74,7 +74,7 @@ function PhraseSetCard({
       )}
       <InfoWrapper $hidden={shouldShowDescription}>
         <Info>{formatToChinaTime(phraseSet.created_at)}</Info>
-        <Info>{phraseSet.count}</Info>
+        <CountChip>{phraseSet.count} 词</CountChip>
       </InfoWrapper>
 
       <CardText $showDescription={shouldShowDescription}>
@@ -135,34 +135,48 @@ const Wrapper = styled.div`
   justify-content: center;
   align-items: center;
   position: relative;
-  border-radius: 1rem;
-  background-color: var(--gray15);
-  color: var(--gray85);
+  border-radius: 0.9rem;
+  background-color: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  transition: border-color 140ms ease, box-shadow 140ms ease,
+    transform 100ms ease, background-color 140ms ease;
+
+  /* 左侧主色细条，作为统一的品牌点缀 */
+  &::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background-color: var(--accent);
+    opacity: 0.85;
+  }
+
   &:hover {
-    background-color: var(--gray25);
+    border-color: var(--accent);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
   }
   &:active {
-    background-color: var(--gray40);
+    transform: translateY(0);
+    background-color: var(--accent-soft);
   }
 
   ${(p) =>
     p.$selectionMode &&
     `
       cursor: pointer;
-      outline: ${p.$selected ? "3px solid var(--gray40)" : "none"};
-      outline-offset: -3px;
+      border-color: ${p.$selected ? "var(--accent)" : "var(--border)"};
+      box-shadow: ${
+        p.$selected
+          ? "0 0 0 2px var(--surface), 0 0 0 4px var(--accent)"
+          : "var(--shadow-sm)"
+      };
     `}
-
-  &:nth-of-type(2n) {
-    background-color: var(--gray85);
-    color: var(--gray15);
-    &:hover {
-      background-color: var(--gray75);
-    }
-    &:active {
-      background-color: var(--gray60);
-    }
-  }
 
   @media ${QUERIES.tabletAndUp} {
     height: ${(p) => (p.$size === "small" ? "112px" : "150px")};
@@ -218,7 +232,9 @@ const CardText = styled.p`
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   text-align: center;
-  font-size: ${(p) => (p.$showDescription ? FONT_SIZE.tiny : FONT_SIZE.small)};
+  font-size: ${(p) => (p.$showDescription ? FONT_SIZE.tiny : FONT_SIZE.default)};
+  font-weight: ${(p) => (p.$showDescription ? 400 : 700)};
+  color: var(--text);
   line-height: 1.5;
   overflow-wrap: anywhere;
   pointer-events: ${(p) => (p.$showDescription ? "auto" : "none")};
@@ -254,14 +270,25 @@ const Checkbox = styled.input`
 const InfoWrapper = styled.div`
   width: 100%;
   position: absolute;
-  padding: 0.4rem 0.6rem;
+  padding: 0.45rem 0.7rem 0.45rem 0.85rem;
   top: 0;
   left: 0;
   display: ${(p) => (p.$hidden ? "none" : "flex")};
+  align-items: center;
   justify-content: space-between;
   pointer-events: none;
 `;
 const Info = styled.p`
-  font-size: 0.8rem;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+`;
+const CountChip = styled.span`
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0.18rem 0.45rem;
+  border-radius: 999px;
+  background-color: var(--accent-soft);
+  color: var(--accent-strong);
 `;
 export default PhraseSetCard;
