@@ -6,6 +6,7 @@ import UnstyledButton from "../UnstyledButton/UnstyledButton";
 import Icon from "../Icon/Icon";
 import { BarLoader } from "react-spinners";
 import { formatToChinaTime } from "../../utility";
+import { playStoredOrBrowser, stopVocabAudio } from "../../services/vocabAudio";
 import PitchReading, { getMoras } from "../PitchReading/PitchReading";
 import { fetchTatoebaExamples } from "../../services/tatoeba";
 import {
@@ -212,6 +213,11 @@ function PhraseDialog({
               </PitchSelect>
             )}
           />
+          <WordAudioButton
+            word={draftPhrase.word}
+            reading={draftPhrase.reading}
+            path={draftPhrase.audio_paths?.word}
+          />
         </>
       }
       detailsContent={
@@ -274,6 +280,7 @@ function PhraseDialog({
         <SentenceHistoryGrid
           sentences={draftPhrase.sentences}
           practiceCorrectCounts={draftPhrase.practiceCorrectCounts}
+          audioPaths={draftPhrase.audio_paths?.sentences}
         />
       }
       desktopDeleteButton={
@@ -391,6 +398,51 @@ const BarLoaderWrapper = styled.div`
   transform: translateY(4px) translateX(1px);
 `;
 
+// ── 单词朗读按钮 ──────────────────────────────────────────────────────────────
+function WordAudioButton({ word, reading, path }) {
+  const [playing, setPlaying] = React.useState(false);
+
+  React.useEffect(() => () => stopVocabAudio(), []);
+
+  async function handlePlay() {
+    if (playing) {
+      stopVocabAudio();
+      setPlaying(false);
+      return;
+    }
+    setPlaying(true);
+    await playStoredOrBrowser({ path, text: reading || word });
+    setPlaying(false);
+  }
+
+  return (
+    <WordAudioBtn type="button" onClick={handlePlay} aria-label="朗读单词">
+      <Icon id={playing ? "loader" : "volume"} size={14} />
+    </WordAudioBtn>
+  );
+}
+
+const WordAudioBtn = styled.button`
+  flex-shrink: 0;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease;
+  &:hover {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+`;
 // ── 词性分类 ──────────────────────────────────────────────────────────────────
 const CategoryPill = styled.span`
   flex-shrink: 0;

@@ -18,7 +18,11 @@ export function getCompletedCount(correctCounts) {
  * sentences 中的元素可以是字符串或 { text: string } 对象。
  * SentenceBox 会自动解析 {answer} 括号并高亮显示。
  */
-function SentenceHistoryGrid({ sentences = [], practiceCorrectCounts = [] }) {
+function SentenceHistoryGrid({
+  sentences = [],
+  practiceCorrectCounts = [],
+  audioPaths = [],
+}) {
   return (
     <Grid>
       {Array.from({ length: 4 }, (_, index) => {
@@ -26,7 +30,9 @@ function SentenceHistoryGrid({ sentences = [], practiceCorrectCounts = [] }) {
         const sentence = sentences?.[index];
 
         return isCompleted && sentence ? (
-          <StyledSentenceBox key={index}>{sentence}</StyledSentenceBox>
+          <StyledSentenceBox key={index} audioPath={audioPaths?.[index]}>
+            {sentence}
+          </StyledSentenceBox>
         ) : (
           <LockedSlot key={index}>
             <Icon id="private" size="1.4rem" color="var(--gray95)" />

@@ -9,6 +9,7 @@ import styled from "styled-components";
 import Button from "../Button/Button";
 import PitchReading from "../PitchReading/PitchReading";
 import { updateChooseMeaningPractice } from "../../services/quiz";
+import { playVocabAudio } from "../../services/vocabAudio";
 import { FONT_FAMILY, FONT_SIZE } from "../../constants";
 
 export default function ChooseMeaningQuiz({
@@ -27,6 +28,11 @@ export default function ChooseMeaningQuiz({
     setSubmitted(true);
     showAnswerToast(isCorrect);
     updateChooseMeaningPractice(quizObject, isCorrect);
+    // 答完自动朗读该词
+    playVocabAudio({
+      path: quizObject.audioPaths?.word,
+      fallbackText: quizObject.reading || quizObject.word,
+    });
   }
 
   function handleContinue() {

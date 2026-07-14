@@ -1,7 +1,8 @@
 import React from "react";
 import styled, { css } from "styled-components";
-import { callDeepseek } from "../../services/ai";
+import { callDeepseek, classifyWordCategories } from "../../services/ai";
 import { checkWordExists, findReusableVocab, insertWord } from "../../services/words";
+import { generateAndStoreVocabAudio } from "../../services/vocabAudio";
 import { normalizeSentences } from "../../utility";
 import Message from "../Message/Message";
 import BusyMessage from "../BusyMessage/BusyMessage";
@@ -164,7 +165,23 @@ function ContributeForm({
       vocabData.reading
     );
 
-    const { error } = await insertWord(vocabData);
+    /* 自动生成词性分类（失败不阻塞入库） */
+    try {
+      const catMap = await classifyWordCategories([
+        {
+          id: 0,
+          word: vocabData.word,
+          reading: vocabData.reading,
+          meaning: vocabData.meaning,
+        },
+      ]);
+      vocabData.categories = catMap["0"] ?? [];
+    } catch (categoryError) {
+      console.warn("词性分类失败：", categoryError?.message);
+      vocabData.categories = [];
+    }
+
+    const { data: inserted, error } = await insertWord(vocabData);
     if (error) {
       setStatus("error");
       setErrorMsg(error.message);
@@ -173,6 +190,10 @@ function ContributeForm({
       setStatus("success");
       setWord("");
       setNotation("");
+      /* 后台生成并存储音频（单词 + 例句）；TTS 不可用会标记为缺失 */
+      if (inserted?.id) {
+        generateAndStoreVocabAudio({ ...vocabData, id: inserted.id });
+      }
       console.log("插入成功");
       onSuccess?.();
     }

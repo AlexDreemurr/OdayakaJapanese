@@ -131,6 +131,7 @@ const TopArea = styled.div`
 const Actions = styled.div`
   display: flex;
   flex-direction: row-reverse;
+  align-items: center;
   height: fit-content;
 `;
 const XWrapper = styled(UnstyledButton)`
@@ -157,9 +158,7 @@ const MobileTitleActions = styled.div`
     display: none;
   }
 `;
-export const MobileActionDropdown = styled(IconActionDropdown)`
-  transform: translateY(4px);
-`;
+export const MobileActionDropdown = styled(IconActionDropdown)``;
 export const TitleIconButton = styled(UnstyledButton)`
   color: var(--gray15);
   padding: 0.8rem;

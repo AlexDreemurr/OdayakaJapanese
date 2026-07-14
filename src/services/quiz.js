@@ -414,6 +414,7 @@ async function fetchSentenceQuiz(user, phraseSetIds, selectionWeight, katakanaRa
     vocabularyReading: vocab.reading,
     vocabularyPitch: vocab.pitch,
     vocabularyId: vocab.id,
+    audioPaths: vocab.audio_paths ?? null,
     sentenceIndex,
   };
 }
@@ -457,6 +458,7 @@ async function fetchTypeReadingQuiz(user, phraseSetIds, selectionWeight) {
       reading: v.reading,
       meaning: v.meaning,
       pitch: v.pitch,
+      audioPaths: v.audio_paths ?? null,
     })),
   };
 }
@@ -498,6 +500,7 @@ async function fetchChooseMeaningQuiz(
     word: target.word,
     reading: target.reading,
     vocabularyPitch: target.pitch,
+    audioPaths: target.audio_paths ?? null,
     choices,
     choiceLabels: choices,
     answer: target.meaning,

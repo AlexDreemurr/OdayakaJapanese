@@ -5,6 +5,7 @@ import SentenceBox from "../SentenceBox/SentenceBox";
 import { PacmanLoader } from "react-spinners";
 import { getSentenceText } from "../../utility";
 import { callDeepseek } from "../../services/ai";
+import { playVocabAudio, stopVocabAudio } from "../../services/vocabAudio";
 import PitchReading from "../PitchReading/PitchReading";
 
 export default function QuizAnswer({
@@ -26,6 +27,16 @@ export default function QuizAnswer({
   const [translatedText, setTranslatedText] = React.useState("");
   const [translateError, setTranslateError] = React.useState(null);
   const displayReading = quizObject.vocabularyReading ?? quizObject.reading;
+
+  // 做完一道题后自动朗读例句（优先库里音频，否则浏览器朗读）
+  React.useEffect(() => {
+    playVocabAudio({
+      path: quizObject.audioPaths?.sentences?.[quizObject.sentenceIndex],
+      fallbackText: quizObject.rawSentence,
+    });
+    return () => stopVocabAudio();
+    // 仅在题目变化时触发一次
+  }, [quizObject.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleTranslate() {
     setNeedTranslate(true);
@@ -52,7 +63,11 @@ export default function QuizAnswer({
         {isCorrect ? "回答正确！" : "好像有点不太对..."}
       </ResultHeading>
       {/* 渲染原题目及答案 */}
-      <SentenceBox>{quizObject.rawSentence}</SentenceBox>
+      <SentenceBox
+        audioPath={quizObject.audioPaths?.sentences?.[quizObject.sentenceIndex]}
+      >
+        {quizObject.rawSentence}
+      </SentenceBox>
       {needTranslate && isLoading && (
         <SentenceBox type="loading">
           <PacmanLoader color="hsl(223deg 56% 48%)" size={22} />

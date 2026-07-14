@@ -2,100 +2,42 @@ import React from "react";
 import styled from "styled-components";
 import Icon from "../Icon/Icon";
 import MyTooltip from "../MyTooltip/MyTooltip";
-import { requestVoicevoxAudio } from "../../services/voicevoxTts";
-import { DEFAULT_VOICEVOX_SPEAKER } from "../../constants/voicevoxSpeakers";
+import { playStoredOrBrowser, stopVocabAudio } from "../../services/vocabAudio";
+import { getSentenceText } from "../../utility";
 
-function SentenceSpeaker({ sentence, speaker = DEFAULT_VOICEVOX_SPEAKER }) {
+function SentenceSpeaker({ sentence, audioPath }) {
   const [status, setStatus] = React.useState("idle");
-  const audioRef = React.useRef(null);
-  const audioUrlRef = React.useRef(null);
-  const isLoading = status === "loading";
   const isPlaying = status === "playing";
-  const isBusy = isLoading || isPlaying;
-  const hasError = status === "error";
 
-  const cleanupAudio = React.useCallback(() => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.removeAttribute("src");
-      audioRef.current.load();
-      audioRef.current = null;
-    }
-
-    if (audioUrlRef.current) {
-      URL.revokeObjectURL(audioUrlRef.current);
-      audioUrlRef.current = null;
-    }
-  }, []);
-
-  React.useEffect(() => cleanupAudio, [cleanupAudio]);
+  // 卸载时停止播放
+  React.useEffect(() => () => stopVocabAudio(), []);
 
   async function handleClick() {
-    if (isBusy) {
+    if (isPlaying) {
+      stopVocabAudio();
+      setStatus("idle");
       return;
     }
 
-    cleanupAudio();
-    setStatus("loading");
-
-    try {
-      const blob = await requestVoicevoxAudio(sentence, { speaker });
-      const audioUrl = URL.createObjectURL(blob);
-      const audio = new Audio(audioUrl);
-
-      audioRef.current = audio;
-      audioUrlRef.current = audioUrl;
-
-      audio.addEventListener(
-        "ended",
-        () => {
-          cleanupAudio();
-          setStatus("idle");
-        },
-        { once: true }
-      );
-
-      audio.addEventListener(
-        "error",
-        () => {
-          cleanupAudio();
-          setStatus("error");
-        },
-        { once: true }
-      );
-
-      await audio.play();
-      setStatus("playing");
-    } catch (error) {
-      console.error(error);
-      cleanupAudio();
-      setStatus("error");
-    }
+    setStatus("playing");
+    // 优先库里音频，没有则浏览器内置朗读
+    await playStoredOrBrowser({
+      path: audioPath,
+      text: getSentenceText(sentence).replace(/[{}｛｝]/g, ""),
+    });
+    setStatus("idle");
   }
 
   return (
     <Wrapper>
       <MyTooltip
         trigger={
-          <SpeakerButton
-            type="button"
-            onClick={handleClick}
-            disabled={isBusy || hasError}
-            data-error={hasError}
-            aria-label="朗读句子"
-          >
-            <Icon
-              id={hasError ? "ban" : isBusy ? "loader" : "volume"}
-              color={hasError ? "var(--red15)" : undefined}
-              size={18}
-            />
+          <SpeakerButton type="button" onClick={handleClick} aria-label="朗读句子">
+            <Icon id={isPlaying ? "loader" : "volume"} size={18} />
           </SpeakerButton>
         }
       >
-        {hasError && "错误"}
-        {!hasError && isLoading && "生成中..."}
-        {!hasError && isPlaying && "播放中..."}
-        {!hasError && !isBusy && "朗读"}
+        {isPlaying ? "播放中（点击停止）" : "朗读"}
       </MyTooltip>
     </Wrapper>
   );

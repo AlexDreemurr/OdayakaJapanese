@@ -9,6 +9,7 @@ import styled from "styled-components";
 import Button from "../Button/Button";
 import KanaKeyboard from "../KanaKeyboard/KanaKeyboard";
 import { updateTypeReadingPractice } from "../../services/quiz";
+import { playVocabAudioSequence } from "../../services/vocabAudio";
 import { normalizeKana } from "../../utility";
 import { consumeRomaji, flushRomaji } from "../../romaji";
 import { FONT_FAMILY, FONT_SIZE } from "../../constants";
@@ -81,6 +82,13 @@ export default function TypeReadingQuiz({
     const allCorrect = results.every((r) => r.isCorrect);
     showAnswerToast(allCorrect);
     updateTypeReadingPractice(results);
+    // 答完依次朗读三个单词
+    playVocabAudioSequence(
+      words.map((w) => ({
+        path: w.audioPaths?.word,
+        fallbackText: w.reading || w.word,
+      }))
+    );
   }
 
   function handleContinue() {

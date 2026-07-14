@@ -3,7 +3,7 @@ import styled from "styled-components";
 import { getSentenceText, getThreeParts } from "../../utility";
 import SentenceSpeaker from "../SentenceSpeaker/SentenceSpeaker";
 
-function SentenceBox({ children, type = "sentence", className }) {
+function SentenceBox({ children, type = "sentence", className, audioPath }) {
   /* 
     type: sentence | translate | loading
   */
@@ -44,7 +44,7 @@ function SentenceBox({ children, type = "sentence", className }) {
               getSentenceText(children)
             )}
           </SentenceText>
-          <SentenceSpeaker sentence={children} />
+          <SentenceSpeaker sentence={children} audioPath={audioPath} />
         </>
       )}
     </Component>

@@ -5,9 +5,12 @@ import { FONT_SIZE } from "../../constants";
 import {
   getAllVocabularyForClassification,
   updateVocabularyCategories,
+  getVocabularyMissingAudio,
 } from "../../services/words";
 import { classifyWordCategories } from "../../services/ai";
+import { generateAndStoreVocabAudio } from "../../services/vocabAudio";
 import { normalizeCategories } from "../../constants/wordCategories";
+import supabase from "../../supabaseClient";
 
 const BATCH_SIZE = 25;
 
@@ -17,8 +20,104 @@ function DebugPage() {
   const [log, setLog] = React.useState([]);
   const [progress, setProgress] = React.useState({ done: 0, total: 0 });
 
+  // 音频批量生成
+  const [audioRunning, setAudioRunning] = React.useState(false);
+  const [audioLog, setAudioLog] = React.useState([]);
+  const [audioProgress, setAudioProgress] = React.useState({ done: 0, total: 0 });
+
+  // 当前登录状态（storage 写入必须为已登录用户）
+  const [authInfo, setAuthInfo] = React.useState("（检查中…）");
+  React.useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setAuthInfo(
+        data?.user ? `已登录：${data.user.email ?? data.user.id}` : "未登录"
+      );
+    });
+  }, []);
+
   function appendLog(line) {
     setLog((cur) => [...cur, line]);
+  }
+  function appendAudioLog(line) {
+    setAudioLog((cur) => [...cur, line]);
+  }
+
+  async function runAudioGeneration() {
+    if (audioRunning) return;
+    setAudioRunning(true);
+    setAudioLog([]);
+    setAudioProgress({ done: 0, total: 0 });
+
+    try {
+      // 上传需要登录态（storage 写策略仅允许 authenticated）
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        appendAudioLog("未登录：storage 写策略仅允许已登录用户，请先登录再运行。");
+        setAudioRunning(false);
+        return;
+      }
+
+      const { data, error } = await getVocabularyMissingAudio();
+      if (error) {
+        appendAudioLog(`读取缺失音频的词条失败：${error.message}`);
+        setAudioRunning(false);
+        return;
+      }
+
+      const targets = data ?? [];
+      appendAudioLog(`需要生成音频的词条：${targets.length} 个。`);
+      setAudioProgress({ done: 0, total: targets.length });
+
+      // 并发处理多个词条（每个词条内部 5 段音频也是并行的），大幅提速
+      const CONCURRENCY = 4;
+      let ready = 0;
+      let failed = 0;
+      let done = 0;
+      let nextIndex = 0;
+      let aborted = false;
+
+      async function worker() {
+        while (!aborted) {
+          const i = nextIndex++;
+          if (i >= targets.length) break;
+
+          const result = await generateAndStoreVocabAudio(targets[i]);
+          if (result.status === "ready") {
+            ready += 1;
+          } else {
+            failed += 1;
+            if (failed <= 3 && result.error) {
+              appendAudioLog(
+                `失败：「${targets[i].word}」— ${result.error.message || result.error}`
+              );
+            }
+          }
+
+          done += 1;
+          setAudioProgress({ done, total: targets.length });
+          if (done % 10 === 0 || done === targets.length) {
+            appendAudioLog(`进度 ${done}/${targets.length} · 成功 ${ready} · 失败 ${failed}`);
+          }
+          // 开头就连续失败，多半是 TTS 未启动 / 桶未建好，提前中止
+          if (!aborted && done >= 5 && ready === 0) {
+            aborted = true;
+            appendAudioLog("连续失败，疑似 VoiceVox/TTS 未启动或桶未建好，已中止。");
+          }
+        }
+      }
+
+      await Promise.all(
+        Array.from({ length: Math.min(CONCURRENCY, targets.length) }, worker)
+      );
+
+      appendAudioLog(`完成！成功 ${ready}，失败/缺失 ${failed}。`);
+    } catch (err) {
+      appendAudioLog(`运行出错：${err.message}`);
+    } finally {
+      setAudioRunning(false);
+    }
   }
 
   async function runClassification() {
@@ -105,6 +204,10 @@ function DebugPage() {
     progress.total > 0
       ? Math.round((progress.done / progress.total) * 100)
       : 0;
+  const audioPct =
+    audioProgress.total > 0
+      ? Math.round((audioProgress.done / audioProgress.total) * 100)
+      : 0;
 
   return (
     <Wrapper>
@@ -147,6 +250,37 @@ function DebugPage() {
               <LogLine $muted>暂无输出</LogLine>
             ) : (
               log.map((line, i) => <LogLine key={i}>{line}</LogLine>)
+            )}
+          </LogBox>
+        </PreviewArea>
+
+        <PreviewArea>
+          <SectionTitle>批量生成音频（VoiceVox）</SectionTitle>
+          <Description>
+            为缺少音频的词条生成「单词 + 4 例句」音频并存入 storage。需先运行
+            vocab_audio 迁移并本地启动 VoiceVox / TTS 服务；只会写入你有编辑权限的词汇集。
+          </Description>
+          <Description>
+            当前登录状态：<strong>{authInfo}</strong>（storage 写入策略仅允许已登录用户）
+          </Description>
+
+          <ButtonRow>
+            <Button type="primary" onClick={runAudioGeneration} disabled={audioRunning}>
+              {audioRunning ? `生成中… ${audioPct}%` : "开始批量生成音频"}
+            </Button>
+          </ButtonRow>
+
+          {audioProgress.total > 0 && (
+            <ProgressTrack>
+              <ProgressFill style={{ width: `${audioPct}%` }} />
+            </ProgressTrack>
+          )}
+
+          <LogBox>
+            {audioLog.length === 0 ? (
+              <LogLine $muted>暂无输出</LogLine>
+            ) : (
+              audioLog.map((line, i) => <LogLine key={i}>{line}</LogLine>)
             )}
           </LogBox>
         </PreviewArea>

@@ -81,12 +81,38 @@ export function findReusableVocab(word) {
 }
 
 /**
- * 向 vocabulary 表插入一条新词条。
+ * 向 vocabulary 表插入一条新词条，并返回插入后的行（含自增 id）。
  * @param {object} vocabData - 词条数据，需包含 word, set_id 等字段
- * @returns {Promise<{error: object|null}>}
+ * @returns {Promise<{data: object|null, error: object|null}>}
  */
 export function insertWord(vocabData) {
-  return supabase.from("vocabulary").insert(vocabData);
+  return supabase.from("vocabulary").insert(vocabData).select().single();
+}
+
+/**
+ * 通过 RPC 写入某词条的音频状态与路径（含权限校验）。
+ * @param {number} vocabularyId
+ * @param {"ready"|"missing"} status
+ * @param {object|null} paths - { word: string, sentences: string[] }
+ */
+export function setVocabularyAudio(vocabularyId, status, paths) {
+  return supabase.rpc("set_vocabulary_audio", {
+    p_vocabulary_id: vocabularyId,
+    p_status: status,
+    p_paths: paths,
+  });
+}
+
+/**
+ * 拉取所有缺少音频的词条（用于批量补生成）。
+ * @returns {Promise<{data: Array|null, error: object|null}>}
+ */
+export function getVocabularyMissingAudio() {
+  return supabase
+    .from("vocabulary")
+    .select("id, word, reading, sentences, set_id, audio_status")
+    .eq("audio_status", "missing")
+    .order("id", { ascending: true });
 }
 
 /**
